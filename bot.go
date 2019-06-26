@@ -5,7 +5,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rylio/ytdl"
 	"log"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -31,9 +30,6 @@ type Response struct {
 	fileInfo *FileInfo
 }
 
-// chat between me and bot
-const clientBotChatID = 67504779
-
 const BotAgentChatID = 846525283
 
 func BotMainLoop() {
@@ -51,23 +47,23 @@ func BotMainLoop() {
 			continue
 		}
 		if update.Message.IsCommand() && update.Message.Command() == "ping" {
-			Bot.Send(tgbotapi.NewMessage(clientBotChatID, "pong"))
+			Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "pong"))
 			continue
 		}
 
 		// client sended to us video
 		if update.Message.Video != nil && update.Message.Chat.ID == BotAgentChatID {
+			caption := strings.Split(update.Message.Caption, ":")
+			chatIDStr := caption[0]
+			fileName := caption[1]
+			chatID, _ := strconv.ParseInt(chatIDStr, 10, 64)
+
 			// delete old info msg
-			_, err = Bot.DeleteMessage(tgbotapi.NewDeleteMessage(clientBotChatID, lastInfoMsg.MessageID))
+			_, err = Bot.DeleteMessage(tgbotapi.NewDeleteMessage(chatID, lastInfoMsg.MessageID))
 			if err != nil {
 				log.Println(err)
 			}
 
-			caption := strings.Split(update.Message.Caption, ":")
-			chatIDStr := caption[0]
-			fileName := caption[1]
-
-			chatID, _ := strconv.ParseInt(chatIDStr, 10, 64)
 			ShareVideoFile(chatID, update.Message.Video)
 			// remove old video file
 			Storage.RemoveFile(fileName)
@@ -75,16 +71,16 @@ func BotMainLoop() {
 		}
 
 		if YoutubeLinkRegExp.MatchString(update.Message.Text) == false {
-			Bot.Send(tgbotapi.NewMessage(clientBotChatID, "Bad url format"))
+			Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Bad url format"))
 			continue
 		}
 
-		lastInfoMsg, err = Bot.Send(tgbotapi.NewMessage(clientBotChatID, "Uploading..."))
+		lastInfoMsg, err = Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Uploading..."))
 
 		go func(text string, chatID int64) {
 			err = RequestHanlder(text, chatID)
 			if err != nil {
-				Bot.Send(tgbotapi.NewMessage(clientBotChatID, err.Error()))
+				Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, err.Error()))
 			}
 		}(update.Message.Text, update.Message.Chat.ID)
 	}
