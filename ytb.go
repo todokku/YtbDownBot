@@ -15,7 +15,12 @@ const MaxFileSizeToUpload = 1500 // Limit size allowed to upload to telegram
 
 func SaveVideo(vid *ytdl.VideoInfo, format720p *ytdl.Format, format360p *ytdl.Format) (*FileInfo, error) {
 	// Check file size because it's not allowed upload greater than 1.5 GB
-	format := format720p
+	var format *ytdl.Format
+	if format720p != nil {
+		format = format720p
+	} else {
+		format = format360p
+	}
 	tryAnotherFormat:
 	vsize, err := GetYoutubeVideoSize(vid, format)
 	if err != nil {
@@ -56,12 +61,14 @@ func SaveVideo(vid *ytdl.VideoInfo, format720p *ytdl.Format, format360p *ytdl.Fo
 
 func GetBestVideoFormats(formats ytdl.FormatList) (*ytdl.Format, *ytdl.Format) {
 	// Find best format: 720p or 360p
-	f720p := new(ytdl.Format)
-	f360p := new(ytdl.Format)
+	var f720p *ytdl.Format
+	var f360p *ytdl.Format
 	for i := 0; i < len(formats); i++ {
 		if formats[i].Itag == 22 {
+			f720p = new(ytdl.Format)
 			*f720p = formats[i]
 		} else if formats[i].Itag == 18 {
+			f360p = new(ytdl.Format)
 			*f360p = formats[i]
 		}
 	}
