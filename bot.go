@@ -46,9 +46,16 @@ func BotMainLoop() {
 		if update.Message == nil { // ignore any non-Message Updates
 			continue
 		}
-		if update.Message.IsCommand() && update.Message.Command() == "ping" {
-			Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "pong"))
-			continue
+		if update.Message.IsCommand() {
+			if update.Message.Command() == "ping" {
+				Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "pong"))
+				continue
+			}
+
+			if update.Message.Command() == "start" {
+				Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Send me youtube link and i will return video for free =)"))
+				continue
+			}
 		}
 
 		// client sended to us video
