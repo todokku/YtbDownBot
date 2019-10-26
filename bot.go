@@ -11,7 +11,7 @@ import (
 )
 
 var Bot *tgbotapi.BotAPI
-var YoutubeLinkRegExp = regexp.MustCompile(`^((?:https?:)?\/\/)?((?:www|m)\.)?((?:youtube\.com|youtu.be))(\/(?:[\w\-]+\?v=|embed\/|v\/)?)([\w\-]+)(\S+)?$`)
+var YoutubeLinkRegExp = regexp.MustCompile(`.*(((?:https?:)?\/\/)?((?:www|m)\.)?((?:youtube\.com|youtu.be))(\/(?:[\w\-]+\?v=|embed\/|v\/)?)([\w\-]+)(\S+)?).*`)
 
 func init() {
 	var err error
@@ -51,9 +51,7 @@ func BotMainLoop() {
 				Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "pong"))
 				continue
 			}
-
 			if update.Message.Command() == "start" {
-				Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Send me youtube link and i will return video for free =)"))
 				continue
 			}
 		}
@@ -84,17 +82,18 @@ func BotMainLoop() {
 
 		lastInfoMsg, err = Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Uploading..."))
 
+		log.Print("Url is ", update.Message.Text)
+
 		go func(text string, chatID int64) {
 			err = RequestHanlder(text, chatID)
 			if err != nil {
 				Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, err.Error()))
 			}
-		}(update.Message.Text, update.Message.Chat.ID)
+		}(YoutubeURLFromText(update.Message.Text), update.Message.Chat.ID)
 	}
 }
 
 func RequestHanlder(messageTxt string, fromChatID int64) error {
-
 	vid, err := ytdl.GetVideoInfo(messageTxt)
 	if err != nil {
 		return errors.WithMessage(err, "failed get video info")
@@ -122,4 +121,14 @@ func ShareVideoFile(chatID int64, video *tgbotapi.Video) {
 	if err != nil {
 		log.Println(err)
 	}
+}
+
+func YoutubeURLFromText(text string) string {
+	text = strings.ReplaceAll(text,"\t", "")
+	text = strings.ReplaceAll(text,"\n", "")
+	text = strings.ReplaceAll(text,"\v", "")
+	text = strings.ReplaceAll(text,"\f", "")
+	text = strings.ReplaceAll(text,"\r","")
+
+	return "https://" + YoutubeLinkRegExp.ReplaceAllString(text, "$1")
 }
