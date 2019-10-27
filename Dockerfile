@@ -17,7 +17,6 @@ FROM ubuntu:19.04
 EXPOSE 80
 
 WORKDIR /root/YtbDownBot
-COPY tdlib-for-image/tdlib-db tdlib-db
 COPY --from=0 /go/src/github.com/kfur/YtbDownBot/YtbDownBot .
 
 RUN apt update && apt upgrade -y && \
