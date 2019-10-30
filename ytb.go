@@ -2,16 +2,24 @@ package main
 
 import (
 	"fmt"
+	"github.com/c2h5oh/datasize"
 	"github.com/pkg/errors"
 	"github.com/rylio/ytdl"
+	log "github.com/sirupsen/logrus"
 	"net/http"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const MaxFileSizeToUpload = 1500 // Limit size allowed to upload to telegram
+
+type VideoInfo struct {
+	Resolution Resolution
+	Duration time.Duration
+}
 
 func SaveVideo(vid *ytdl.VideoInfo, format720p *ytdl.Format, format360p *ytdl.Format) (*FileInfo, error) {
 	// Check file size because it's not allowed upload greater than 1.5 GB
@@ -26,7 +34,11 @@ func SaveVideo(vid *ytdl.VideoInfo, format720p *ytdl.Format, format360p *ytdl.Fo
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed get youtube video size")
 	}
-	if vsize > MaxFileSizeToUpload {
+	if vsize == 0 {
+		return nil, errors.New("Failed download file")
+	}
+
+	if vsize.MBytes() > MaxFileSizeToUpload {
 		if format == format720p && format360p != nil {
 			format = format360p
 			goto tryAnotherFormat
@@ -52,12 +64,11 @@ func SaveVideo(vid *ytdl.VideoInfo, format720p *ytdl.Format, format360p *ytdl.Fo
 		return nil, err
 	}
 
-	res, err := GetVideoResolution(fileName)
+	vi, err := GetVideoInfo(fileName)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed get video resolution")
 	}
-
-	fileInfo := &FileInfo{fileName, vid.Duration, *res, vsize}
+	fileInfo := &FileInfo{fileName, vi.Duration, vi.Resolution, vsize, vid.GetThumbnailURL(ytdl.ThumbnailQualityHigh).String()}
 
 	return fileInfo, nil
 }
@@ -79,7 +90,7 @@ func GetBestVideoFormats(formats ytdl.FormatList) (*ytdl.Format, *ytdl.Format) {
 	return f720p, f360p
 }
 
-func GetYoutubeVideoSize(vid *ytdl.VideoInfo, format *ytdl.Format) (int64, error) {
+func GetYoutubeVideoSize(vid *ytdl.VideoInfo, format *ytdl.Format) (datasize.ByteSize, error) {
 	url, err := vid.GetDownloadURL(*format)
 	if err != nil {
 		return 0, errors.WithMessage(err, "failed get download url")
@@ -88,25 +99,31 @@ func GetYoutubeVideoSize(vid *ytdl.VideoInfo, format *ytdl.Format) (int64, error
 	return GetFileSizeFromUrl(url.String()), nil
 }
 
-func GetFileSizeFromUrl(url string) int64 {
+func GetFileSizeFromUrl(url string) datasize.ByteSize {
 	r, _ := http.Head(url)
+	if r.StatusCode != http.StatusOK {
+		log.Error("Status code is ", r.StatusCode)
+		return 0
+	}
+	size := datasize.ByteSize(r.ContentLength)
 
-	fmt.Printf("File size is %d\n", r.ContentLength / 1048576)
+	log.Infof("File size is %fMB", size.MBytes())
 
-	return r.ContentLength / 1048576
+	return size
 }
 
-func GetVideoResolution(vidPath string) (*Resolution, error) {
-	infoCmd := exec.Command("bash", "-c", fmt.Sprintf(`mediainfo '--Inform=Video;%%Width%%\n%%Height%%' '%s'`, vidPath))
+func GetVideoInfo(vidPath string) (*VideoInfo, error) {
+	infoCmd := exec.Command("bash", "-c", fmt.Sprintf(`mediainfo '--Inform=Video;%%Width%%\n%%Height%%\n%%Duration%%' '%s'`, vidPath))
 
 	rawRes, err := infoCmd.Output()
 	if err != nil {
-		return nil, errors.WithMessage(err, "failed execute command to get vid resolution")
+		return nil, errors.WithMessage(err, "failed execute command to get video info")
 	}
 
 	resArr := strings.Split(string(rawRes), "\n")
 	w, _ := strconv.Atoi(resArr[0])
 	h, _ := strconv.Atoi(resArr[1])
+	d, _ := strconv.ParseUint(resArr[2], 10, 64)
 
-	return &Resolution{int32(w), int32(h)}, nil
+	return &VideoInfo{Resolution{int32(w), int32(h)}, time.Millisecond * time.Duration(d)}, nil
 }

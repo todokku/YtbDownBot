@@ -26,6 +26,14 @@
   version = "v1.0.0"
 
 [[projects]]
+  branch = "master"
+  digest = "1:e8891cd354f2af940345f895d5698ab1ed439196d4f69eb44817fc91e80354c1"
+  name = "github.com/c2h5oh/datasize"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "4eba002a5eaea69cf8d235a388fc6b65ae68d2dd"
+
+[[projects]]
   digest = "1:51712f342cdefcad2c867f399a3ce8223675221d4386c81cfcccd8f0656e722e"
   name = "github.com/go-telegram-bot-api/telegram-bot-api"
   packages = ["."]
@@ -96,9 +104,11 @@
   analyzer-version = 1
   input-imports = [
     "github.com/Arman92/go-tdlib",
+    "github.com/c2h5oh/datasize",
     "github.com/go-telegram-bot-api/telegram-bot-api",
     "github.com/pkg/errors",
     "github.com/rylio/ytdl",
+    "github.com/sirupsen/logrus",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
