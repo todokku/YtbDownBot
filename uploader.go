@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/Arman92/go-tdlib"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"strconv"
 )
 
@@ -14,7 +14,7 @@ var DeleteMsgsEventListener tdlib.EventReceiver
 const AgentChatId = 794633388
 
 func init() {
-	tdlib.SetLogVerbosityLevel(1)
+	tdlib.SetLogVerbosityLevel(0)
 	// Create new instance of TgClient
 	TgClient = tdlib.NewClient(tdlib.Config{
 		APIID:               "94575",
@@ -58,7 +58,7 @@ func init() {
 				fmt.Printf("Error sending auth password: %v", err)
 			}
 		} else if currentState.GetAuthorizationStateEnum() == tdlib.AuthorizationStateReadyType {
-			fmt.Println("Authorization Ready! Let's rock")
+			log.Info("Authorization Ready! Let's rock")
 			break
 		}
 	}
@@ -83,10 +83,10 @@ func VideoUploaderLoop() {
 			true,
 			tdlib.NewFormattedText(strconv.FormatInt(resp.ChatID, 10) + ":" + resp.fileInfo.Path, nil),
 			0)
-		log.Println("send message to bot")
-		_, err := TgClient.SendMessage(AgentChatId, 0, false,false,nil, m)
+		log.Info("Send message to bot")
+		_, err = TgClient.SendMessage(AgentChatId, 0, false,false,nil, m)
 		if err != nil {
-			log.Println("failed send message from agent to bot", err)
+			log.WithError(err).Error("Failed send message from agent to bot")
 			continue
 		}
 	}

@@ -37,16 +37,19 @@ func SaveVideo(vid *ytdl.VideoInfo, format720p *ytdl.Format, format360p *ytdl.Fo
 
 	// Download and save file
 	fileName := vid.ID + ".mp4"
-
-	vidFile, err := os.OpenFile("./" + fileName, os.O_CREATE|os.O_WRONLY, os.ModePerm)
-	if err != nil {
-		return nil, errors.WithMessage(err, "failed open file for video saving")
+	var vidFile *os.File
+	if vidFile, err = Storage.AddFile(fileName, vsize); err != nil {
+		return nil, errors.WithMessage(err, "failed save file")
 	}
 	defer vidFile.Close()
 
 	err = vid.Download(*format, vidFile)
 	if err != nil {
-		return nil, errors.WithMessage(err, "failed download video")
+		err = os.Remove("./" + fileName)
+		if err != nil {
+			log.Error("Failed remove empty file: ", err)
+		}
+		return nil, err
 	}
 
 	res, err := GetVideoResolution(fileName)

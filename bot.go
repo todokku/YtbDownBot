@@ -4,7 +4,7 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/pkg/errors"
 	"github.com/rylio/ytdl"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"regexp"
 	"strconv"
 	"strings"
@@ -66,7 +66,7 @@ func BotMainLoop() {
 			// delete old info msg
 			_, err = Bot.DeleteMessage(tgbotapi.NewDeleteMessage(chatID, lastInfoMsg.MessageID))
 			if err != nil {
-				log.Println(err)
+				log.Error(err)
 			}
 
 			ShareVideoFile(chatID, update.Message.Video)
@@ -82,12 +82,13 @@ func BotMainLoop() {
 
 		lastInfoMsg, err = Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Uploading..."))
 
-		log.Print("Url is ", update.Message.Text)
+		log.Info("Url is ", update.Message.Text)
 
 		go func(text string, chatID int64) {
 			err = RequestHanlder(text, chatID)
 			if err != nil {
-				Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, err.Error()))
+				log.Error(err)
+				Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Failed download video"))
 			}
 		}(YoutubeURLFromText(update.Message.Text), update.Message.Chat.ID)
 	}
@@ -105,21 +106,19 @@ func RequestHanlder(messageTxt string, fromChatID int64) error {
 	if err != nil {
 		return errors.WithMessage(err, "failed save video")
 	}
-	Storage.AddFile(fileInfo)
 
-	log.Println("Video downloaded")
-
+	log.Info("Video downloaded")
 	ResponseChan <- &Response{fromChatID, fileInfo}
 
 	return nil
 }
 
 func ShareVideoFile(chatID int64, video *tgbotapi.Video) {
-	log.Println("share video")
+	log.Info("share video")
 	vidShare := tgbotapi.NewVideoShare(chatID, video.FileID)
 	_, err := Bot.Send(vidShare)
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 	}
 }
 
