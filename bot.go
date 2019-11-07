@@ -1,36 +1,38 @@
 package main
 
 import (
+	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/pkg/errors"
-	"github.com/rylio/ytdl"
+	"os/exec"
+	"os"
+	"sync"
+
 	log "github.com/sirupsen/logrus"
-	"regexp"
+	"mvdan.cc/xurls"
 	"strconv"
 	"strings"
 )
 
 var Bot *tgbotapi.BotAPI
-var YoutubeLinkRegExp = regexp.MustCompile(`.*(((?:https?:)?\/\/)?((?:www|m)\.)?((?:youtube\.com|youtu.be))(\/(?:[\w\-]+\?v=|embed\/|v\/)?)([\w\-]+)(\S+)?).*`)
+var UploadProcsCond *sync.Cond
+var UploadProcsLock sync.Mutex
 
 func init() {
 	var err error
-	Bot, err = tgbotapi.NewBotAPI(os.Getenv("YTB_BOT_API"))
+	Bot, err = tgbotapi.NewBotAPI(os.Getenv("BOT_API_TOKEN"))
 	if err != nil {
 		log.Panic(err)
 	}
 
-	//Bot.Debug = true
+	UploadProcsCond = sync.NewCond(&UploadProcsLock)
 
 	log.Printf("Authorized on account %s", Bot.Self.UserName)
+
+	BotAgentChatID, _ = strconv.ParseInt(os.Getenv("BOT_AGENT_CHAT_ID"), 10, 64)
 }
 
-type Response struct {
-	ChatID int64
-	fileInfo *FileInfo
-}
-
-const BotAgentChatID = 846525283
+// Chat id with agent(client that used for bypass limit in 50MB)
+var BotAgentChatID int64
 
 func BotMainLoop() {
 	u := tgbotapi.NewUpdate(0)
@@ -41,6 +43,7 @@ func BotMainLoop() {
 	}
 
 	var lastInfoMsg tgbotapi.Message
+	rxRelaxed := xurls.Relaxed()
 
 	for update := range updates {
 		if update.Message == nil { // ignore any non-Message Updates
@@ -57,58 +60,92 @@ func BotMainLoop() {
 		}
 
 		// client sended to us video
-		if update.Message.Video != nil && update.Message.Chat.ID == BotAgentChatID {
-			caption := strings.Split(update.Message.Caption, ":")
-			chatIDStr := caption[0]
-			fileName := caption[1]
-			chatID, _ := strconv.ParseInt(chatIDStr, 10, 64)
+		if update.Message.Chat.ID == BotAgentChatID {
+			if update.Message.Video == nil && update.Message.Text != "" {
+				// check is message contain error string
+				splitedText := strings.Split(update.Message.Text, " ")
+				chatID, err := strconv.ParseInt(splitedText[0], 10, 64)
+				if err == nil {
+					// delete old info msg
+					_, err = Bot.DeleteMessage(tgbotapi.NewDeleteMessage(chatID, lastInfoMsg.MessageID))
+					if err != nil {
+						log.Error(err)
+					}
+					Bot.Send(tgbotapi.NewMessage(chatID, strings.Join(splitedText[1:], " ")))
+					continue
+				}
+			} else {
+				chatIDStr := update.Message.Caption
+				chatID, _ := strconv.ParseInt(chatIDStr, 10, 64)
 
-			// delete old info msg
-			_, err = Bot.DeleteMessage(tgbotapi.NewDeleteMessage(chatID, lastInfoMsg.MessageID))
-			if err != nil {
-				log.Error(err)
+				// delete old info msg
+				_, err = Bot.DeleteMessage(tgbotapi.NewDeleteMessage(chatID, lastInfoMsg.MessageID))
+				if err != nil {
+					log.Error(err)
+				}
+
+				ShareVideoFile(chatID, update.Message.Video)
+				continue
 			}
 
-			ShareVideoFile(chatID, update.Message.Video)
-			// remove old video file
-			Storage.RemoveFile(fileName)
-			continue
 		}
 
-		if YoutubeLinkRegExp.MatchString(update.Message.Text) == false {
-			Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Bad url format"))
+		urls := rxRelaxed.FindAllString(update.Message.Text, 10)
+		if len(urls) == 0 {
+			Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "There aren't any urls in your message.\n Please send at least one."))
 			continue
+		} else {
+			lastInfoMsg, err = Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Uploading..."))
 		}
 
-		lastInfoMsg, err = Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Uploading..."))
+		log.Info("Message is ", update.Message.Text)
 
-		log.Info("Url is ", update.Message.Text)
-
-		go func(text string, chatID int64) {
-			err = RequestHanlder(text, chatID)
+		go func(urls []string, chatID int64) {
+			err = RequestHanlder(urls, chatID)
 			if err != nil {
 				log.Error(err)
 				Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Failed download video"))
 			}
-		}(YoutubeURLFromText(update.Message.Text), update.Message.Chat.ID)
+		}(Deduplicate(urls), update.Message.Chat.ID)
+
 	}
 }
 
-func RequestHanlder(messageTxt string, fromChatID int64) error {
-	vid, err := ytdl.GetVideoInfo(messageTxt)
-	if err != nil {
-		return errors.WithMessage(err, "failed get video info")
+const MAX_UPLOAD_PROCS = 10
+var CurrentUploadProcs = 0
+
+func RequestHanlder(urls []string, fromChatID int64) error {
+	UploadProcsLock.Lock()
+
+	var OneInstanceAlreadyRan = 0
+
+	for CurrentUploadProcs >= MAX_UPLOAD_PROCS {
+		fmt.Printf("Wait for free procs (Currently running procs: %d)\n", CurrentUploadProcs)
+		UploadProcsCond.Wait()
 	}
-
-	format720p, format360p := GetBestVideoFormats(vid.Formats)
-
-	fileInfo, err := SaveVideo(vid, format720p, format360p)
-	if err != nil {
-		return errors.WithMessage(err, "failed save video")
+	if CurrentUploadProcs != 0 {
+		OneInstanceAlreadyRan = 1
 	}
+	CurrentUploadProcs += 1
+	urlsArg := strings.Join(urls," ")
+	p := fmt.Sprintf(`python3 ./main.py %d %d '%s'`, OneInstanceAlreadyRan, fromChatID, urlsArg)
+	uploadCmd := exec.Command("bash", "-c", fmt.Sprintf(`python3 ./main.py %d %d '%s'`, OneInstanceAlreadyRan, fromChatID, urlsArg))
 
-	log.Info("Video downloaded")
-	ResponseChan <- &Response{fromChatID, fileInfo}
+	UploadProcsLock.Unlock()
+	out, err := uploadCmd.Output()
+	if err != nil {
+		fmt.Println(p, " ", err)
+	}
+	fmt.Println(p, " ", string(out))
+
+	UploadProcsLock.Lock()
+	CurrentUploadProcs -= 1
+	UploadProcsLock.Unlock()
+
+	UploadProcsCond.Broadcast()
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	return nil
 }
@@ -122,12 +159,19 @@ func ShareVideoFile(chatID int64, video *tgbotapi.Video) {
 	}
 }
 
-func YoutubeURLFromText(text string) string {
-	text = strings.ReplaceAll(text,"\t", "")
-	text = strings.ReplaceAll(text,"\n", "")
-	text = strings.ReplaceAll(text,"\v", "")
-	text = strings.ReplaceAll(text,"\f", "")
-	text = strings.ReplaceAll(text,"\r","")
+// Deduplicate returns a new slice with duplicates values removed.
+func Deduplicate(s []string) []string {
+	if len(s) <= 1 {
+		return s
+	}
 
-	return "https://" + YoutubeLinkRegExp.ReplaceAllString(text, "$1")
+	result := []string{}
+	seen := make(map[string]struct{})
+	for _, val := range s {
+		if _, ok := seen[val]; !ok {
+			result = append(result, val)
+			seen[val] = struct{}{}
+		}
+	}
+	return result
 }

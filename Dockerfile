@@ -3,13 +3,7 @@ FROM golang:latest
 WORKDIR /go/src/github.com/kfur/YtbDownBot
 COPY . .
 
-RUN apt update && apt upgrade -y && \
-    apt install -y apt-transport-https curl gnupg && \
-    curl "https://repo.zelenin.pw/gpg.key" | apt-key add - && \
-    echo "deb [arch=amd64] https://repo.zelenin.pw common contrib" > "/etc/apt/sources.list.d/tdlib.list" && \
-    apt update && \
-    apt install -y tdlib-dev && \
-    go build
+RUN go build
 
 
 FROM ubuntu:19.04
@@ -18,13 +12,15 @@ EXPOSE 80
 
 WORKDIR /root/YtbDownBot
 COPY --from=0 /go/src/github.com/kfur/YtbDownBot/YtbDownBot .
+COPY --from=0 /go/src/github.com/kfur/YtbDownBot/start.sh .
+COPY --from=0 /go/src/github.com/kfur/YtbDownBot/main.py .
+COPY --from=0 /go/src/github.com/kfur/YtbDownBot/life.session .
+COPY --from=0 /go/src/github.com/kfur/YtbDownBot/requirements.txt .
 
-RUN apt update && apt upgrade -y && \
-    apt install -y apt-transport-https curl gnupg && \
-    curl "https://repo.zelenin.pw/gpg.key" | apt-key add - && \
-    echo "deb [arch=amd64] https://repo.zelenin.pw common contrib" > "/etc/apt/sources.list.d/tdlib.list" && \
-    apt update && \
-    apt install -y tdlib mediainfo jq && \
+
+RUN apt update && \
+    apt install -y mediainfo jq python3 python3-pip git ffmpeg && \
+    pip3 install -r requirements.txt  && \
     apt-get autoremove -y && apt-get clean && apt-get autoclean
 
-CMD ["./YtbDownBot"]
+CMD ["./start.sh"]

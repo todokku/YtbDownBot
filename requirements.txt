@@ -1,0 +1,3 @@
+m3u8==0.5.1
+ffmpeg-python==0.2.0
+git+git://github.com/kfur/Telethon@b8ffc12fdbe700819486d93ec36fdceda0a25240#egg=telethon

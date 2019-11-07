@@ -2,38 +2,6 @@
 
 
 [[projects]]
-  branch = "master"
-  digest = "1:194d45dc5ad0b726bfba63a29874473c55de124d8970a371fa405181b5a37f23"
-  name = "github.com/Arman92/go-tdlib"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "5bbe270b752ef476a848d1796243f2372487f2ef"
-
-[[projects]]
-  digest = "1:573fa46f8d413d4bc3f7cc5e86b2c43cb21559f4fb0a19d9874d228e28fdc07c"
-  name = "github.com/PuerkitoBio/goquery"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "2d2796f41742ece03e8086188fa4db16a3a0b458"
-  version = "v1.5.0"
-
-[[projects]]
-  digest = "1:66b3310cf22cdc96c35ef84ede4f7b9b370971c4025f394c89a2638729653b11"
-  name = "github.com/andybalholm/cascadia"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "901648c87902174f774fac311d7f176f8647bdaa"
-  version = "v1.0.0"
-
-[[projects]]
-  branch = "master"
-  digest = "1:e8891cd354f2af940345f895d5698ab1ed439196d4f69eb44817fc91e80354c1"
-  name = "github.com/c2h5oh/datasize"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "4eba002a5eaea69cf8d235a388fc6b65ae68d2dd"
-
-[[projects]]
   digest = "1:51712f342cdefcad2c867f399a3ce8223675221d4386c81cfcccd8f0656e722e"
   name = "github.com/go-telegram-bot-api/telegram-bot-api"
   packages = ["."]
@@ -48,21 +16,6 @@
   pruneopts = "UT"
   revision = "f55edac94c9bbba5d6182a4be46d86a2c9b5b50e"
   version = "v1.0.2"
-
-[[projects]]
-  digest = "1:cf31692c14422fa27c83a05292eb5cbe0fb2775972e8f1f8446a71549bd8980b"
-  name = "github.com/pkg/errors"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "ba968bfe8b2f7e042a574c888954fccecfa385b4"
-  version = "v0.8.1"
-
-[[projects]]
-  digest = "1:e39f2a5a4be01927e6cb70d37cd75cf361a3f1c2050e718d8aaf85aca735b2c5"
-  name = "github.com/rylio/ytdl"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "1f14ef2e151a8f8a1af2f318f518f26ff0980b31"
 
 [[projects]]
   digest = "1:04457f9f6f3ffc5fea48e71d62f2ca256637dee0a04d710288e27e05c8b41976"
@@ -82,33 +35,27 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:d7b978a787736537d0ad2f84c0e8b75b05c2febef0537198e28edf1cf2768afd"
-  name = "golang.org/x/net"
-  packages = [
-    "html",
-    "html/atom",
-  ]
-  pruneopts = "UT"
-  revision = "3f473d35a33aa6fdd203e306dc439b797820e3f1"
-
-[[projects]]
-  branch = "master"
-  digest = "1:010311506e3917b54487c35a4277e2709678a40c1587d82492c40b78b6a0a01d"
+  digest = "1:824b4d14e35e35e821d3127319e51eb838f72434100750ad395db96d00b5a871"
   name = "golang.org/x/sys"
   packages = ["unix"]
   pruneopts = "UT"
-  revision = "5ed2794edfdc1c54dfb61d619c5944285f35d444"
+  revision = "c1f44814a5cd81a6d1cb589ef1e528bc5d305e07"
+
+[[projects]]
+  digest = "1:abadfc1280a8354027af9b2916c4b303bfe3480fea2ed8cb2928e7288acdd46f"
+  name = "mvdan.cc/xurls"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "aca318f079078cc3677a81e7f7d89df859f4f4b2"
+  version = "v2.1.0"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "github.com/Arman92/go-tdlib",
-    "github.com/c2h5oh/datasize",
     "github.com/go-telegram-bot-api/telegram-bot-api",
-    "github.com/pkg/errors",
-    "github.com/rylio/ytdl",
     "github.com/sirupsen/logrus",
+    "mvdan.cc/xurls",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
