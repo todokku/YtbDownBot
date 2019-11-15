@@ -73,7 +73,7 @@ func BotMainLoop() {
 				var chatID int64
 				var messageID int
 				if strings.Contains(splitedText[0], ":") {
-					captionWithID := strings.Split(update.Message.Caption, ":")
+					captionWithID := strings.Split(splitedText[0], ":")
 					chatID, _ = strconv.ParseInt(captionWithID[0], 10, 64)
 					messageID, _ = strconv.Atoi(captionWithID[1])
 				} else {
