@@ -1,14 +1,15 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	"mvdan.cc/xurls"
 	"os/exec"
 	"os"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
-	"mvdan.cc/xurls"
 	"strconv"
 	"strings"
 )
@@ -16,6 +17,8 @@ import (
 var Bot *tgbotapi.BotAPI
 var UploadProcsCond *sync.Cond
 var UploadProcsLock sync.Mutex
+
+var ChatActionHandler ChatActionManager
 
 func init() {
 	var err error
@@ -42,8 +45,10 @@ func BotMainLoop() {
 		log.Panic(err)
 	}
 
-	var lastInfoMsg tgbotapi.Message
+	//var lastInfoMsg tgbotapi.Message
 	rxRelaxed := xurls.Relaxed()
+
+	go ChatActionHandler.ActionLoop()
 
 	for update := range updates {
 		if update.Message == nil { // ignore any non-Message Updates
@@ -62,29 +67,47 @@ func BotMainLoop() {
 		// client sended to us video
 		if update.Message.Chat.ID == BotAgentChatID {
 			if update.Message.Video == nil && update.Message.Text != "" {
+				//No video then error occured
 				// check is message contain error string
 				splitedText := strings.Split(update.Message.Text, " ")
-				chatID, err := strconv.ParseInt(splitedText[0], 10, 64)
+				var chatID int64
+				var messageID int
+				if strings.Contains(splitedText[0], ":") {
+					captionWithID := strings.Split(update.Message.Caption, ":")
+					chatID, _ = strconv.ParseInt(captionWithID[0], 10, 64)
+					messageID, _ = strconv.Atoi(captionWithID[1])
+				} else {
+					chatID, err = strconv.ParseInt(splitedText[0], 10, 64)
+				}
+
 				if err == nil {
 					// delete old info msg
-					_, err = Bot.DeleteMessage(tgbotapi.NewDeleteMessage(chatID, lastInfoMsg.MessageID))
-					if err != nil {
-						log.Error(err)
+					ChatActionHandler.DelAction(chatID)
+					//_, err = Bot.DeleteMessage(tgbotapi.NewDeleteMessage(chatID, lastInfoMsg.MessageID))
+					//if err != nil {
+					//	log.Error(err)
+					//}
+					errMsg := tgbotapi.NewMessage(chatID, strings.Join(splitedText[1:], " "))
+					if messageID != 0 {
+						errMsg.ReplyToMessageID = messageID
 					}
-					Bot.Send(tgbotapi.NewMessage(chatID, strings.Join(splitedText[1:], " ")))
+					Bot.Send(errMsg)
 					continue
 				}
 			} else {
-				chatIDStr := update.Message.Caption
-				chatID, _ := strconv.ParseInt(chatIDStr, 10, 64)
+				// All good video was received
+				caption := strings.Split(update.Message.Caption, ":")
+				chatID, _ := strconv.ParseInt(caption[0], 10, 64)
+				messageID, _ := strconv.Atoi(caption[1])
 
 				// delete old info msg
-				_, err = Bot.DeleteMessage(tgbotapi.NewDeleteMessage(chatID, lastInfoMsg.MessageID))
-				if err != nil {
-					log.Error(err)
-				}
+				ChatActionHandler.DelAction(chatID)
+				//_, err = Bot.DeleteMessage(tgbotapi.NewDeleteMessage(chatID, lastInfoMsg.MessageID))
+				//if err != nil {
+				//	log.Error(err)
+				//}
 
-				ShareVideoFile(chatID, update.Message.Video)
+				ShareVideoFile(update.Message.Video, chatID, messageID)
 				continue
 			}
 
@@ -94,27 +117,28 @@ func BotMainLoop() {
 		if len(urls) == 0 {
 			Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "There aren't any urls in your message.\n Please send at least one."))
 			continue
-		} else {
-			lastInfoMsg, err = Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Uploading..."))
 		}
 
 		log.Info("Message is ", update.Message.Text)
 
-		go func(urls []string, chatID int64) {
-			err = RequestHanlder(urls, chatID)
+		go func(urls []string, chatID int64, messageID int) {
+			ChatActionHandler.AddAction(tgbotapi.NewChatAction(chatID, "upload_video"))
+
+			err = RequestHanlder(urls, strconv.FormatInt(chatID,10) + ":" + strconv.Itoa(messageID))
 			if err != nil {
-				log.Error(err)
+				ChatActionHandler.DelAction(chatID)
+				log.Error("Request failed: ", err)
 				Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Failed download video"))
 			}
-		}(Deduplicate(urls), update.Message.Chat.ID)
+		}(Deduplicate(urls), update.Message.Chat.ID, update.Message.MessageID)
 
 	}
 }
 
-const MAX_UPLOAD_PROCS = 10
+const MAX_UPLOAD_PROCS = 20
 var CurrentUploadProcs = 0
 
-func RequestHanlder(urls []string, fromChatID int64) error {
+func RequestHanlder(urls []string, chatNmessageID string) error {
 	UploadProcsLock.Lock()
 
 	var OneInstanceAlreadyRan = 0
@@ -128,13 +152,13 @@ func RequestHanlder(urls []string, fromChatID int64) error {
 	}
 	CurrentUploadProcs += 1
 	urlsArg := strings.Join(urls," ")
-	p := fmt.Sprintf(`python3 ./main.py %d %d '%s'`, OneInstanceAlreadyRan, fromChatID, urlsArg)
-	uploadCmd := exec.Command("bash", "-c", fmt.Sprintf(`python3 ./main.py %d %d '%s'`, OneInstanceAlreadyRan, fromChatID, urlsArg))
+	p := fmt.Sprintf(`python3 ./main.py %d %s '%s'`, OneInstanceAlreadyRan, chatNmessageID, urlsArg)
+	uploadCmd := exec.Command("bash", "-c", fmt.Sprintf(`python3 ./main.py %d %s '%s'`, OneInstanceAlreadyRan, chatNmessageID, urlsArg))
 
 	UploadProcsLock.Unlock()
 	out, err := uploadCmd.Output()
 	if err != nil {
-		fmt.Println(p, " ", err)
+		return errors.New(fmt.Sprintln(p, " ", err))
 	}
 	fmt.Println(p, " ", string(out))
 
@@ -150,9 +174,10 @@ func RequestHanlder(urls []string, fromChatID int64) error {
 	return nil
 }
 
-func ShareVideoFile(chatID int64, video *tgbotapi.Video) {
+func ShareVideoFile(video *tgbotapi.Video, chatID int64, replyToMessageID int) {
 	log.Info("share video")
 	vidShare := tgbotapi.NewVideoShare(chatID, video.FileID)
+	vidShare.ReplyToMessageID = replyToMessageID
 	_, err := Bot.Send(vidShare)
 	if err != nil {
 		log.Error(err)

@@ -1,5 +1,5 @@
 # YtbDownBot
-Telegram bot for download youtube video directly to telegram.
+Telegram bot that utilize youtube-dl functionality for downloading video directly to telegram.
 Simple clone of https://t.me/VideoTubeBot.
 
 # Dependencies

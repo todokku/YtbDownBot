@@ -63,7 +63,7 @@ def m3u8_video_size(url):
 
 async def main():
     started = int(sys.argv[1])
-    chat_id = str(sys.argv[2])
+    chat_and_message_id = str(sys.argv[2])
     urls = str(sys.argv[3]).split(" ")
 
     if started != 0:
@@ -75,8 +75,8 @@ async def main():
         try:
             vinfo = y.extract_info(u, download=False)
         except Exception as e:
-                await client.send_message(CHAT_WITH_BOT_ID, chat_id+" "+e.__str__())
-                continue
+            await client.send_message(CHAT_WITH_BOT_ID, chat_and_message_id+" "+e.__str__())
+            continue
 
         entries = None
         if '_type' in vinfo and vinfo['_type'] == 'playlist':
@@ -102,7 +102,7 @@ async def main():
                         break
             else:
                 if ent['protocol'] in ['rtsp', 'rtmp', 'rtmpe', 'mms', 'f4m', 'ism', 'http_dash_segments']:
-                    await client.send_message(CHAT_WITH_BOT_ID, chat_id+" "+"ERROR: Failed find suitable video format")
+                    await client.send_message(CHAT_WITH_BOT_ID, chat_and_message_id+" "+"ERROR: Failed find suitable video format")
                     return
                 if 'm3u8' in ent['protocol']:
                     file_size = m3u8_video_size(ent['url'])
@@ -122,7 +122,7 @@ async def main():
                                        attributes=(DocumentAttributeVideo(duration,
                                                                           width,
                                                                           height,
-                                                                          supports_streaming=True),), caption=chat_id)
+                                                                          supports_streaming=True),), caption=chat_and_message_id)
             except Exception as e:
                 print(e)
                 traceback.print_exc()
