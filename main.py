@@ -28,7 +28,7 @@ def video_info(url, use_m3u8=False):
             if hasattr(s, 'duration'):
                 dur += s.duration
 
-    mi_proc = subprocess.Popen(['mediainfo', '--Inform=Video;%Width%\\n%Height%\\n%Duration%', url],
+    mi_proc = subprocess.Popen(['mediainfo', '--Inform=Video;%Width%\\n%Height%\\n%Duration%', '2>', '/dev/null', url],
                              stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT)
     out = mi_proc.stdout.read()
@@ -84,8 +84,8 @@ async def main():
         else:
             entries = [vinfo]
 
-        for ent in entries:
-            formats = ent.get('requested_formats')
+        for entry in entries:
+            formats = entry.get('requested_formats')
             file_size = None
             chosen_format = None
 
@@ -101,22 +101,22 @@ async def main():
                         chosen_format = f
                         break
             else:
-                if ent['protocol'] in ['rtsp', 'rtmp', 'rtmpe', 'mms', 'f4m', 'ism', 'http_dash_segments']:
+                if entry['protocol'] in ['rtsp', 'rtmp', 'rtmpe', 'mms', 'f4m', 'ism', 'http_dash_segments']:
                     await client.send_message(CHAT_WITH_BOT_ID, chat_and_message_id+" "+"ERROR: Failed find suitable video format")
                     return
-                if 'm3u8' in ent['protocol']:
-                    file_size = m3u8_video_size(ent['url'])
+                if 'm3u8' in entry['protocol']:
+                    file_size = m3u8_video_size(entry['url'])
                 else:
-                    file_size = video_size(ent['url'])
-                if ('m3u8' in ent['protocol'] and file_size / (1024*1024) <= TG_MAX_FILE_SIZE) or (file_size / (1024 * 1024) <= TG_MAX_FILE_SIZE):
-                    chosen_format = ent
+                    file_size = video_size(entry['url'])
+                if ('m3u8' in entry['protocol'] and file_size / (1024*1024) <= TG_MAX_FILE_SIZE) or (file_size / (1024 * 1024) <= TG_MAX_FILE_SIZE):
+                    chosen_format = entry
 
             try:
-                file = await client.upload_file(chosen_format['url'], file_name=ent['title'] + '.' + chosen_format['ext'], protocol=chosen_format['protocol'], file_size=file_size)
-                if ('duration' not in chosen_format) or ('width' not in chosen_format) or ('height' not in chosen_format):
+                file = await client.upload_file(chosen_format['url'], file_name=entry['title'] + '.' + chosen_format['ext'], protocol=chosen_format['protocol'], file_size=file_size)
+                if ('duration' not in entry and 'duration' not in chosen_format) or ('width' not in chosen_format) or ('height' not in chosen_format):
                     width, height, duration = video_info(chosen_format['url'], use_m3u8=('m3u8' in chosen_format['protocol']))
                 else:
-                    width, height, duration = chosen_format['width'], chosen_format['height'], int(ent['duration'])
+                    width, height, duration = chosen_format['width'], chosen_format['height'], int(entry['duration']) if 'duration' not in entry else int(entry['duration'])
 
                 await client.send_file(CHAT_WITH_BOT_ID, file, video_note=True,
                                        attributes=(DocumentAttributeVideo(duration,
