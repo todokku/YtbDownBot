@@ -79,10 +79,9 @@ func BotMainLoop() {
 				} else {
 					chatID, err = strconv.ParseInt(splitedText[0], 10, 64)
 				}
-
+				
+				ChatActionHandler.DelAction(chatID)
 				if err == nil {
-					// delete old info msg
-					ChatActionHandler.DelAction(chatID)
 					//_, err = Bot.DeleteMessage(tgbotapi.NewDeleteMessage(chatID, lastInfoMsg.MessageID))
 					//if err != nil {
 					//	log.Error(err)
