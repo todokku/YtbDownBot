@@ -75,8 +75,17 @@ async def main():
         try:
             vinfo = y.extract_info(u, download=False)
         except Exception as e:
-            await client.send_message(CHAT_WITH_BOT_ID, chat_and_message_id+" "+e.__str__())
-            continue
+            if "Please log in or sign up to view this video" in e.__str__():
+                if 'vk.com' in u or 'facebook.com' in u:
+                    try:
+                        yy = ydl.YoutubeDL({'format': 'best[ext=mp4,height>=720]+best[ext=mp4,height<=360]/best[ext=mp4]', 'username': os.environ['VIDEO_ACCOUNT_USERNAME'], 'password': os.environ['VIDEO_ACCOUNT_PASSWORD']})
+                        vinfo = yy.extract_info(u, download=False)
+                    except Exception as e:
+                        await client.send_message(CHAT_WITH_BOT_ID, chat_and_message_id+" "+e.__str__())
+                        continue
+            else:
+                await client.send_message(CHAT_WITH_BOT_ID, chat_and_message_id+" "+e.__str__())
+                continue
 
         entries = None
         if '_type' in vinfo and vinfo['_type'] == 'playlist':
