@@ -1,0 +1,35 @@
+name: Docker Image CI/CD
+
+on: [push]
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+    env: 
+      DOCKER_TAG: registry.gitlab.com/dnsk/ytbdownbot:latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Build the Docker image
+      run: |
+        docker build --build-arg ARG_BOT_API_TOKEN=${{secrets.ARG_BOT_API_TOKEN}} --build-arg ARG_BOT_AGENT_CHAT_ID=${{secrets.ARG_BOT_AGENT_CHAT_ID}} --build-arg ARG_API_ID=${{secrets.ARG_API_ID}} --build-arg ARG_API_HASH=${{secrets.ARG_API_HASH}} --build-arg ARG_CHAT_WITH_BOT_ID=${{secrets.ARG_CHAT_WITH_BOT_ID}} --build-arg ARG_TG_CLIENT_SESSION_FILE="${{secrets.TG_CLIENT_SESSION_FILE}}" --build-arg ARG_TG_CLIENT_SESSION_FILE_NAME=${{secrets.TG_CLIENT_SESSION_FILE_NAME}} . --file Dockerfile --tag $DOCKER_TAG
+    - name: Push to Gitlab registry
+      run: |
+        docker login registry.gitlab.com --username ${{secrets.GITLAB_REGISTRY_USERNAME}} --password ${{secrets.GITLAB_REGISTRY_PASSWORD}}
+        docker push $DOCKER_TAG
+    
+    - name: Push to Cloud Foundry
+      uses: climatechallenge/cloud-foundry-cli-action@master
+      env:
+        CF_API_ENDPOINT: ${{secrets.CF_API_ENDPOINT}}
+        ORG: ${{secrets.CF_ORG}}
+        SPACE: ${{secrets.CF_SPACE}}
+        USERNAME: ${{secrets.CF_USERNAME}}
+        PASSWORD: ${{secrets.CF_PASSWORD}}
+        CF_DOCKER_IMAGE: registry.gitlab.com/${{secrets.GITLAB_REGISTRY_USERNAME}}/ytbdownbot:latest
+        APP_NAME: ${{secrets.CF_APP_NAME}}
+        CF_DOCKER_USERNAME: ${{secrets.CF_DOCKER_USERNAME}}
+        CF_DOCKER_PASSWORD: ${{secrets.CF_DOCKER_PASSWORD}}
+        

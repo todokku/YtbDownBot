@@ -14,7 +14,6 @@ WORKDIR /root/YtbDownBot
 COPY --from=0 /go/src/github.com/kfur/YtbDownBot/YtbDownBot .
 COPY --from=0 /go/src/github.com/kfur/YtbDownBot/start.sh .
 COPY --from=0 /go/src/github.com/kfur/YtbDownBot/main.py .
-COPY --from=0 /go/src/github.com/kfur/YtbDownBot/life.session .
 COPY --from=0 /go/src/github.com/kfur/YtbDownBot/requirements.txt .
 
 
@@ -22,5 +21,21 @@ RUN apt update && \
     apt install -y mediainfo jq python3 python3-pip git ffmpeg && \
     pip3 install -r requirements.txt  && \
     apt-get autoremove -y && apt-get clean && apt-get autoclean
+
+ARG ARG_BOT_API_TOKEN
+ARG ARG_BOT_AGENT_CHAT_ID
+ARG ARG_API_ID
+ARG ARG_API_HASH
+ARG ARG_CHAT_WITH_BOT_ID
+ARG ARG_TG_CLIENT_SESSION_FILE
+ARG ARG_TG_CLIENT_SESSION_FILE_NAME
+
+ENV BOT_API_TOKEN $ARG_BOT_API_TOKEN
+ENV BOT_AGENT_CHAT_ID $ARG_BOT_AGENT_CHAT_ID
+ENV API_ID $ARG_API_ID
+ENV API_HASH $ARG_API_HASH
+ENV CHAT_WITH_BOT_ID $ARG_CHAT_WITH_BOT_ID
+ENV TG_CLIENT_SESSION_FILE $ARG_TG_CLIENT_SESSION_FILE
+ENV TG_CLIENT_SESSION_FILE_NAME $ARG_TG_CLIENT_SESSION_FILE_NAME
 
 CMD ["./start.sh"]
