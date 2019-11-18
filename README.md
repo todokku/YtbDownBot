@@ -25,6 +25,8 @@ for bypass limit in 50MB) and bot:
 `API_ID`
   5. Api hash (https://core.telegram.org/api/obtaining_api_id):
 `API_HASH`
+  6. Telegram client session file name:
+  `TG_CLIENT_SESSION_FILE_NAME`
 
 Build by:
 `go build`
