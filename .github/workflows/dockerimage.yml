@@ -18,7 +18,12 @@ jobs:
     - uses: actions/checkout@v1
     - name: Build the Docker image
       run: |
-        docker build --build-arg ARG_BOT_API_TOKEN=${{secrets.ARG_BOT_API_TOKEN}} --build-arg ARG_BOT_AGENT_CHAT_ID=${{secrets.ARG_BOT_AGENT_CHAT_ID}} --build-arg ARG_API_ID=${{secrets.ARG_API_ID}} --build-arg ARG_API_HASH=${{secrets.ARG_API_HASH}} --build-arg ARG_CHAT_WITH_BOT_ID=${{secrets.ARG_CHAT_WITH_BOT_ID}} --build-arg ARG_TG_CLIENT_SESSION_FILE="${{secrets.TG_CLIENT_SESSION_FILE}}" --build-arg ARG_TG_CLIENT_SESSION_FILE_NAME=${{secrets.TG_CLIENT_SESSION_FILE_NAME}} --build-arg ARG_VIDEO_ACCOUNT_USERNAME=${{secrets.VIDEO_ACCOUNT_USERNAME}} --build-arg ARG_VIDEO_ACCOUNT_PASSWORD=${{secrets.VIDEO_ACCOUNT_PASSWORD}} . --file Dockerfile --tag $DOCKER_TAG
+        docker build --build-arg ARG_BOT_API_TOKEN=${{secrets.ARG_BOT_API_TOKEN}} --build-arg ARG_BOT_AGENT_CHAT_ID=${{secrets.ARG_BOT_AGENT_CHAT_ID}} \
+        --build-arg ARG_API_ID=${{secrets.ARG_API_ID}} --build-arg ARG_API_HASH=${{secrets.ARG_API_HASH}} \
+        --build-arg ARG_CHAT_WITH_BOT_ID=${{secrets.ARG_CHAT_WITH_BOT_ID}} --build-arg ARG_TG_CLIENT_SESSION_FILE="${{secrets.TG_CLIENT_SESSION_FILE}}" \
+        --build-arg ARG_TG_CLIENT_SESSION_FILE_NAME=${{secrets.TG_CLIENT_SESSION_FILE_NAME}} \
+        --build-arg ARG_VIDEO_ACCOUNT_USERNAME=${{secrets.VIDEO_ACCOUNT_USERNAME}} --build-arg ARG_VIDEO_ACCOUNT_PASSWORD=${{secrets.VIDEO_ACCOUNT_PASSWORD}} \
+        . --file Dockerfile --tag $DOCKER_TAG
     - name: Push to Gitlab registry
       run: |
         docker login registry.gitlab.com --username ${{secrets.GITLAB_REGISTRY_USERNAME}} --password ${{secrets.GITLAB_REGISTRY_PASSWORD}}
