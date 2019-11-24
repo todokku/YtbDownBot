@@ -79,13 +79,8 @@ func BotMainLoop() {
 				} else {
 					chatID, err = strconv.ParseInt(splitedText[0], 10, 64)
 				}
-				
-				ChatActionHandler.DelAction(chatID)
+
 				if err == nil {
-					//_, err = Bot.DeleteMessage(tgbotapi.NewDeleteMessage(chatID, lastInfoMsg.MessageID))
-					//if err != nil {
-					//	log.Error(err)
-					//}
 					errMsg := tgbotapi.NewMessage(chatID, strings.Join(splitedText[1:], " "))
 					if messageID != 0 {
 						errMsg.ReplyToMessageID = messageID
@@ -98,13 +93,6 @@ func BotMainLoop() {
 				caption := strings.Split(update.Message.Caption, ":")
 				chatID, _ := strconv.ParseInt(caption[0], 10, 64)
 				messageID, _ := strconv.Atoi(caption[1])
-
-				// delete old info msg
-				ChatActionHandler.DelAction(chatID)
-				//_, err = Bot.DeleteMessage(tgbotapi.NewDeleteMessage(chatID, lastInfoMsg.MessageID))
-				//if err != nil {
-				//	log.Error(err)
-				//}
 
 				ShareVideoFile(update.Message.Video, chatID, messageID)
 				continue
@@ -125,10 +113,10 @@ func BotMainLoop() {
 
 			err = RequestHanlder(urls, strconv.FormatInt(chatID,10) + ":" + strconv.Itoa(messageID))
 			if err != nil {
-				ChatActionHandler.DelAction(chatID)
 				log.Error("Request failed: ", err)
 				Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Failed download video"))
 			}
+			ChatActionHandler.DelAction(chatID)
 		}(Deduplicate(urls), update.Message.Chat.ID, update.Message.MessageID)
 
 	}
