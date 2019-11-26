@@ -83,6 +83,16 @@ async def main():
                     except Exception as e:
                         await client.send_message(CHAT_WITH_BOT_ID, chat_and_message_id+" "+e.__str__())
                         continue
+                else:
+                    await client.send_message(CHAT_WITH_BOT_ID, chat_and_message_id+" "+e.__str__())
+                    continue
+            elif 'This playlist does not exist' in e.__str__() or 'This playlist is private' in e.__str__():
+                try:
+                    yy = ydl.YoutubeDL({'format': 'best[ext=mp4,height>=720]+best[ext=mp4,height<=360]/best[ext=mp4]', 'noplaylist': True})
+                    vinfo = yy.extract_info(u, download=False)
+                except Exception as e:
+                    await client.send_message(CHAT_WITH_BOT_ID, chat_and_message_id+" "+e.__str__())
+                    continue
             else:
                 await client.send_message(CHAT_WITH_BOT_ID, chat_and_message_id+" "+e.__str__())
                 continue
