@@ -93,8 +93,11 @@ func BotMainLoop() {
 				caption := strings.Split(update.Message.Caption, ":")
 				chatID, _ := strconv.ParseInt(caption[0], 10, 64)
 				messageID, _ := strconv.Atoi(caption[1])
-
-				ShareVideoFile(update.Message.Video, chatID, messageID)
+				if update.Message.Video != nil {
+					ShareVideoFile(update.Message.Video, chatID, messageID)
+				} else if update.Message.Document != nil {
+					ShareDocumentFile(update.Message.Document, chatID, messageID)
+				}
 				continue
 			}
 
@@ -105,9 +108,7 @@ func BotMainLoop() {
 			Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "There aren't any urls in your message.\n Please send at least one."))
 			continue
 		}
-
 		log.Info("Message is ", update.Message.Text)
-
 		go func(urls []string, chatID int64, messageID int) {
 			ChatActionHandler.AddAction(tgbotapi.NewChatAction(chatID, "upload_video"))
 
@@ -166,6 +167,16 @@ func ShareVideoFile(video *tgbotapi.Video, chatID int64, replyToMessageID int) {
 	vidShare := tgbotapi.NewVideoShare(chatID, video.FileID)
 	vidShare.ReplyToMessageID = replyToMessageID
 	_, err := Bot.Send(vidShare)
+	if err != nil {
+		log.Error(err)
+	}
+}
+
+func ShareDocumentFile(doc *tgbotapi.Document, chatID int64, replyToMessageID int) {
+	log.Info("share doc")
+	docShare := tgbotapi.NewDocumentShare(chatID, doc.FileID)
+	docShare.ReplyToMessageID = replyToMessageID
+	_, err := Bot.Send(docShare)
 	if err != nil {
 		log.Error(err)
 	}
