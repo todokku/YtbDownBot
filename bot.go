@@ -145,16 +145,17 @@ func RequestHanlder(urls []string, chatNmessageID string) error {
 
 	UploadProcsLock.Unlock()
 	out, err := uploadCmd.Output()
-	if err != nil {
-		return errors.New(fmt.Sprintln(p, " ", err))
-	}
-	fmt.Println(p, " ", string(out))
 
 	UploadProcsLock.Lock()
 	CurrentUploadProcs -= 1
 	UploadProcsLock.Unlock()
 
 	UploadProcsCond.Broadcast()
+	if err != nil {
+		return errors.New(fmt.Sprintln(p, " ", err))
+	}
+	fmt.Println(p, " ", string(out))
+
 	if err != nil {
 		fmt.Println(err)
 	}
