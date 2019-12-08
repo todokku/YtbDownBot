@@ -14,7 +14,7 @@ api_hash = os.environ['API_HASH']
 CHAT_WITH_BOT_ID = int(os.environ['CHAT_WITH_BOT_ID'])
 
 client = TelegramClient(os.environ['TG_CLIENT_SESSION_FILE_NAME'], api_id, api_hash)
-y = ydl.YoutubeDL({'format': 'best[ext=mp4,height>=720]+best[ext=mp4,height<=360]/best[ext=mp4]'})
+y = ydl.YoutubeDL({'format': 'best[ext=mp4,height>=720]+best[ext=mp4,height<=360]/best[ext=mp4]/best'})
 
 TG_MAX_FILE_SIZE = 1500
 
@@ -43,6 +43,12 @@ def video_info(url, use_m3u8=False):
 
     return w, h, dur
 
+def video_format(url):
+    mi_proc = subprocess.Popen(['mediainfo', '--Inform=General;%Format%', '2>', '/dev/null', url],
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.STDOUT)
+    out = mi_proc.stdout.read()
+    return out.split(b'\n')[0].decode('utf-8')
 
 def video_size(url):
     head_req = request.Request(url, method='HEAD')
@@ -131,6 +137,16 @@ async def main():
                     chosen_format = entry
 
             try:
+                if chosen_format is None:
+                    await client.send_message(CHAT_WITH_BOT_ID, chat_and_message_id+" "+"ERROR: Failed find suitable video format")
+                    return
+                if chosen_format['ext'] == 'unknown_video':
+                    format = video_format(chosen_format['url'])
+                    if format == 'MPEG-4':
+                        chosen_format['ext'] = 'mp4'
+                    else:
+                        await client.send_message(CHAT_WITH_BOT_ID, chat_and_message_id+" "+"ERROR: Failed find suitable video format")
+                        return
                 file = await client.upload_file(chosen_format['url'], file_name=entry['title'] + '.' + chosen_format['ext'], protocol=chosen_format['protocol'], file_size=file_size)
                 if ('duration' not in entry and 'duration' not in chosen_format) or ('width' not in chosen_format) or ('height' not in chosen_format):
                     width, height, duration = video_info(chosen_format['url'], use_m3u8=('m3u8' in chosen_format['protocol']))
