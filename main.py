@@ -14,7 +14,7 @@ api_hash = os.environ['API_HASH']
 CHAT_WITH_BOT_ID = int(os.environ['CHAT_WITH_BOT_ID'])
 
 client = TelegramClient(os.environ['TG_CLIENT_SESSION_FILE_NAME'], api_id, api_hash)
-y = ydl.YoutubeDL({'format': 'best[ext=mp4,height>=720]+best[ext=mp4,height<=360]/best[ext=mp4]/best'})
+y = ydl.YoutubeDL({'format': 'best[ext=mp4,height>=720]+best[ext=mp4,height<=360]/best[ext=mp4]/best', 'noplaylist': True})
 
 TG_MAX_FILE_SIZE = 1500
 
