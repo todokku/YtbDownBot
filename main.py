@@ -170,6 +170,13 @@ async def main():
                 except Exception as e:
                     await client.send_message(CHAT_WITH_BOT_ID, chat_and_message_id+" "+e.__str__())
                     continue
+            elif 'are video-only' in e.__str__():
+                try:
+                    yy = ydl.YoutubeDL({'format': 'bestvideo[ext=mp4,container=mp4_dash]', 'noplaylist': True, 'youtube_include_dash_manifest': False})
+                    vinfo = yy.extract_info(u, download=False)
+                except Exception as e:
+                    await client.send_message(CHAT_WITH_BOT_ID, chat_and_message_id+" "+e.__str__())
+                    continue
             else:
                 await client.send_message(CHAT_WITH_BOT_ID, chat_and_message_id+" "+e.__str__())
                 continue
