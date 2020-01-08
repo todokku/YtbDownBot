@@ -16,10 +16,13 @@ COPY --from=0 /go/src/github.com/kfur/YtbDownBot/start.sh .
 COPY --from=0 /go/src/github.com/kfur/YtbDownBot/main.py .
 COPY --from=0 /go/src/github.com/kfur/YtbDownBot/requirements.txt .
 
+ADD youtubedl-autoupdate /etc/cron.daily/youtubedl 
 
 RUN apt update && \
-    apt install -y mediainfo jq python3 python3-pip git ffmpeg && \
+    apt install -y mediainfo jq python3 python3-pip git ffmpeg cron && \
     pip3 install -r requirements.txt  && \
+    chmod +x /etc/cron.daily/youtubedl && \
+    touch /var/log/cron.log && \
     apt-get autoremove -y && apt-get clean && apt-get autoclean
 
 ARG ARG_BOT_API_TOKEN

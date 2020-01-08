@@ -9,4 +9,5 @@ else
   echo "$TG_CLIENT_SESSION_FILE" | base64 -d > "${TG_CLIENT_SESSION_FILE_NAME}.session"
 fi
 
+cron
 exec ./YtbDownBot
