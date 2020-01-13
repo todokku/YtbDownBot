@@ -221,6 +221,7 @@ async def main():
                         break
                     if file_size / (1024 * 1024) <= TG_MAX_FILE_SIZE:
                         chosen_format = f
+                        break
 
             else:
                 if entry['protocol'] in ['rtsp', 'rtmp', 'rtmpe', 'mms', 'f4m', 'ism', 'http_dash_segments']:
@@ -236,6 +237,7 @@ async def main():
                     break
                 if (file_size / (1024 * 1024) <= TG_MAX_FILE_SIZE):
                     chosen_format = entry
+                    break
 
             try:
                 if chosen_format is None and ffmpeg_video is None:
