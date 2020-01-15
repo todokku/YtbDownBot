@@ -1,4 +1,4 @@
 m3u8==0.5.1
 ffmpeg-python==0.2.0
 cryptg==0.2.post0
-git+git://github.com/kfur/Telethon@13328b1a6ae5344c7682f37eddb9f74d4a8f377c#egg=telethon
+git+git://github.com/kfur/Telethon@d2de41e244dac45a4f9d48ad78a4a7ea170bb587#egg=telethon

@@ -18,7 +18,7 @@ CHAT_WITH_BOT_ID = int(os.environ['CHAT_WITH_BOT_ID'])
 
 client = TelegramClient(os.environ['TG_CLIENT_SESSION_FILE_NAME'], api_id, api_hash)
 
-video_format = 'best[ext=mp4,height>=720]+best[ext=mp4,height<=360]/best[ext=mp4]/bestvideo[ext=mp4,height<=1080,container=mp4_dash]+bestaudio[ext=m4a]/bestvideo[ext=mp4,container=mp4_dash]+bestaudio[ext=m4a]/best'
+video_format = 'best[ext=mp4,height<=1080]+best[ext=mp4,height<=480]/best[ext=mp4,height<=1080]/bestvideo[ext=mp4,height<=1080]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best'
 y = ydl.YoutubeDL({'format': video_format, 'noplaylist': True, 'youtube_include_dash_manifest': False})
 
 TG_MAX_FILE_SIZE = 1500
@@ -70,17 +70,17 @@ class FFMpegVideo(DumbReader):
 
     def __init__(self, vformat, mformat=None):
         if mformat:
-            self.stream = ffmpeg.input(vformat['url']).output('pipe:',
-                                                    format='mp4',
-                                                    acodec='copy',
-                                                    vcodec='copy',
-                                                    movflags='frag_keyframe').global_args('-i', mformat['url'], '-map', '0:v', '-map', '1:a').run_async(pipe_stdout=True)
+            self.stream = ffmpeg.input(vformat['url'], **{"user-agent": user_agent}).output('pipe:',
+                                                                                            format='mp4',
+                                                                                            acodec='copy',
+                                                                                            vcodec='copy',
+                                                                                            movflags='frag_keyframe').global_args('-user-agent', user_agent, '-i', mformat['url'], '-map', '0:v', '-map', '1:a').run_async(pipe_stdout=True)
         else:
-            self.stream = ffmpeg.input(vformat['url']).output('pipe:',
-                                      format='mp4',
-                                      vcodec='copy',
-                                      acodec='copy',
-                                      movflags='frag_keyframe').run_async(pipe_stdout=True)
+            self.stream = ffmpeg.input(vformat['url'], **{"user-agent": user_agent}).output('pipe:',
+                                                                                            format='mp4',
+                                                                                            vcodec='copy',
+                                                                                            acodec='copy',
+                                                                                            movflags='frag_keyframe').run_async(pipe_stdout=True)
 
     def read(self, n: int = -1):
         return self.stream.stdout.read(n)
@@ -121,8 +121,10 @@ def video_format(url):
     out = mi_proc.stdout.read()
     return out.split(b'\n')[0].decode('utf-8')
 
+user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3719.5 Safari/537.36'
 def video_size(url):
-    head_req = request.Request(url, method='HEAD')
+    headers = {'User-Agent': user_agent}
+    head_req = request.Request(url, method='HEAD', headers=headers)
     with request.urlopen(head_req) as resp:
         return int(resp.headers['Content-Length'])
 
@@ -172,7 +174,7 @@ async def main():
                     continue
             elif 'are video-only' in e.__str__():
                 try:
-                    yy = ydl.YoutubeDL({'format': 'bestvideo[ext=mp4,container=mp4_dash]', 'noplaylist': True, 'youtube_include_dash_manifest': False})
+                    yy = ydl.YoutubeDL({'format': 'bestvideo[ext=mp4]', 'noplaylist': True, 'youtube_include_dash_manifest': False})
                     vinfo = yy.extract_info(u, download=False)
                 except Exception as e:
                     await client.send_message(CHAT_WITH_BOT_ID, chat_and_message_id+" "+e.__str__())
@@ -202,7 +204,8 @@ async def main():
                     else:
                         file_size = video_size(f['url'])
 
-                    if 'container' in f and f['container'] == 'mp4_dash':
+                    if f['protocol'] == 'https' and f['acodec'] == None:
+                        # Dash video
                         vformat = f
                         mformat = None
                         vsize = video_size(vformat['url'])
@@ -248,7 +251,7 @@ async def main():
                     else:
                         await client.send_message(CHAT_WITH_BOT_ID, chat_and_message_id+" "+"ERROR: Failed find suitable video format")
                         return
-                file = await client.upload_file(ffmpeg_video if ffmpeg_video is not None else chosen_format['url'], file_name=entry['title'] + '.' + chosen_format['ext'], file_size=file_size)
+                file = await client.upload_file(ffmpeg_video if ffmpeg_video is not None else chosen_format['url'], file_name=entry['title'] + '.' + chosen_format['ext'], file_size=file_size, user_agent=user_agent)
                 if ('duration' not in entry and 'duration' not in chosen_format) or ('width' not in chosen_format) or ('height' not in chosen_format):
                     width, height, duration = video_info(chosen_format['url'], use_m3u8=('m3u8' in chosen_format['protocol']))
                 else:
