@@ -1,6 +1,7 @@
 import sys, os
 from telethon import TelegramClient, events
 from telethon.tl.types import DocumentAttributeVideo
+from telethon.sessions import StringSession
 import youtube_dl as ydl
 from urllib import request
 import traceback
@@ -14,9 +15,9 @@ import ffmpeg
 api_id = int(os.environ['API_ID'])
 api_hash = os.environ['API_HASH']
 
-CHAT_WITH_BOT_ID = int(os.environ['CHAT_WITH_BOT_ID'])
+CHAT_WITH_BOT_ID = os.environ['CHAT_WITH_BOT_ID']
 
-client = TelegramClient(os.environ['TG_CLIENT_SESSION_FILE_NAME'], api_id, api_hash)
+client = TelegramClient(StringSession(os.environ['CLIENT_SESSION']), api_id, api_hash)
 
 video_format = 'best[ext=mp4,height<=1080]+best[ext=mp4,height<=480]/best[ext=mp4,height<=1080]/bestvideo[ext=mp4,height<=1080]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best'
 y = ydl.YoutubeDL({'format': video_format, 'noplaylist': True, 'youtube_include_dash_manifest': False})
@@ -141,14 +142,8 @@ def m3u8_video_size(url):
     return size
 
 async def main():
-    started = int(sys.argv[1])
-    chat_and_message_id = str(sys.argv[2])
-    urls = str(sys.argv[3]).split(" ")
-
-    if started != 0:
-        print("Already started " + str(sys.argv[1:]))
-        await client.connect()
-
+    chat_and_message_id = str(sys.argv[1])
+    urls = str(sys.argv[2]).split(" ")
 
     for u in urls:
         try:
@@ -269,9 +264,7 @@ async def main():
                 traceback.print_exc()
 
 
-started = int(sys.argv[1])
-if not started:
-    client.start()
+client.start()
 
 loop = asyncio.get_event_loop()
 loop.run_until_complete(main())

@@ -1,13 +1,11 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"mvdan.cc/xurls"
 	"os/exec"
 	"os"
-	"sync"
 
 	log "github.com/sirupsen/logrus"
 	"strconv"
@@ -15,8 +13,6 @@ import (
 )
 
 var Bot *tgbotapi.BotAPI
-var UploadProcsCond *sync.Cond
-var UploadProcsLock sync.Mutex
 
 var ChatActionHandler ChatActionManager
 
@@ -26,8 +22,6 @@ func init() {
 	if err != nil {
 		log.Panic(err)
 	}
-
-	UploadProcsCond = sync.NewCond(&UploadProcsLock)
 
 	log.Printf("Authorized on account %s", Bot.Self.UserName)
 
@@ -124,42 +118,17 @@ func BotMainLoop() {
 	}
 }
 
-const MAX_UPLOAD_PROCS = 20
-var CurrentUploadProcs = 0
 
 func RequestHanlder(urls []string, chatNmessageID string) error {
-	UploadProcsLock.Lock()
-
-	var OneInstanceAlreadyRan = 0
-
-	for CurrentUploadProcs >= MAX_UPLOAD_PROCS {
-		fmt.Printf("Wait for free procs (Currently running procs: %d)\n", CurrentUploadProcs)
-		UploadProcsCond.Wait()
-	}
-	if CurrentUploadProcs != 0 {
-		OneInstanceAlreadyRan = 1
-	}
-	CurrentUploadProcs += 1
 	urlsArg := strings.Join(urls," ")
-	p := fmt.Sprintf(`python3 ./main.py %d %s '%s'`, OneInstanceAlreadyRan, chatNmessageID, urlsArg)
-	uploadCmd := exec.Command("bash", "-c", fmt.Sprintf(`python3 ./main.py %d %s '%s'`, OneInstanceAlreadyRan, chatNmessageID, urlsArg))
+	p := fmt.Sprintf(`python3 ./main.py %s '%s'`, chatNmessageID, urlsArg)
+	uploadCmd := exec.Command("bash", "-c", fmt.Sprintf(`python3 ./main.py %s '%s' 2>&1`, chatNmessageID, urlsArg))
 
-	UploadProcsLock.Unlock()
 	out, err := uploadCmd.Output()
-
-	UploadProcsLock.Lock()
-	CurrentUploadProcs -= 1
-	UploadProcsLock.Unlock()
-
-	UploadProcsCond.Broadcast()
-	if err != nil {
-		return errors.New(fmt.Sprintln(p, " ", err))
-	}
-	fmt.Println(p, " ", string(out))
-
 	if err != nil {
 		fmt.Println(err)
 	}
+	fmt.Println(p, " ", string(out))
 
 	return nil
 }
