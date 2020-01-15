@@ -204,7 +204,7 @@ async def main():
                     else:
                         file_size = video_size(f['url'])
 
-                    if f['protocol'] == 'https' and (True if ('acodec' in f and f['acodec'] == None) else False):
+                    if f['protocol'] == 'https' and (True if ('acodec' in f and (f['acodec'] == 'none' or f['acodec'] == None)) else False):
                         # Dash video
                         vformat = f
                         mformat = None
