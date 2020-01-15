@@ -234,10 +234,8 @@ async def main():
                 if ('m3u8' in entry['protocol'] and file_size / (1024*1024) <= TG_MAX_FILE_SIZE):
                     chosen_format = entry
                     ffmpeg_video = FFMpegVideo(chosen_format)
-                    break
                 if (file_size / (1024 * 1024) <= TG_MAX_FILE_SIZE):
                     chosen_format = entry
-                    break
 
             try:
                 if chosen_format is None and ffmpeg_video is None:
