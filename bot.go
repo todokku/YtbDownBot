@@ -60,6 +60,7 @@ func BotMainLoop() {
 				continue
 			}
 			if update.Message.Command() == "start" {
+				Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Send me a video links"))
 				continue
 			}
 		}
