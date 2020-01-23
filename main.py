@@ -19,7 +19,7 @@ CHAT_WITH_BOT_ID = os.environ['CHAT_WITH_BOT_ID']
 
 client = TelegramClient(StringSession(os.environ['CLIENT_SESSION']), api_id, api_hash)
 
-video_format = 'best[ext=mp4,height<=1080]+best[ext=mp4,height<=480]/best[ext=mp4,height<=1080]/bestvideo[ext=mp4,height<=1080]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best'
+video_format = 'best[ext=mp4,height<=1080]+best[ext=mp4,height<=480]/best[ext=mp4,height<=1080]/best[ext=mp4]/bestvideo[ext=mp4,height<=1080]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best'
 y = ydl.YoutubeDL({'format': video_format, 'noplaylist': True, 'youtube_include_dash_manifest': False})
 
 TG_MAX_FILE_SIZE = 1500
