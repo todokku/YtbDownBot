@@ -71,13 +71,13 @@ class FFMpegVideo(DumbReader):
 
     def __init__(self, vformat, mformat=None):
         if mformat:
-            self.stream = ffmpeg.input(vformat['url'], **{"user-agent": user_agent}).output('pipe:',
+            self.stream = ffmpeg.input(vformat['url'], **{"user-agent": user_agent, "loglevel": "error"}).output('pipe:',
                                                                                             format='mp4',
                                                                                             acodec='copy',
                                                                                             vcodec='copy',
                                                                                             movflags='frag_keyframe').global_args('-user-agent', user_agent, '-i', mformat['url'], '-map', '0:v', '-map', '1:a').run_async(pipe_stdout=True)
         else:
-            self.stream = ffmpeg.input(vformat['url'], **{"user-agent": user_agent}).output('pipe:',
+            self.stream = ffmpeg.input(vformat['url'], **{"user-agent": user_agent, "loglevel": "error"}).output('pipe:',
                                                                                             format='mp4',
                                                                                             vcodec='copy',
                                                                                             acodec='copy',
