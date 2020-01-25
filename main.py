@@ -20,8 +20,8 @@ CHAT_WITH_BOT_ID = os.environ['CHAT_WITH_BOT_ID']
 client = TelegramClient(StringSession(os.environ['CLIENT_SESSION']), api_id, api_hash)
 
 vid_format = 'best[ext=mp4,height<=1080]+best[ext=mp4,height<=480]/best[ext=mp4,height<=1080]/best[ext=mp4]/bestvideo[ext=mp4,height<=1080]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best'
-worst_video_format = 'best[ext=mp4,height<=360]+worst[ext=mp4,height>=240]/bestvideo[ext=mp4,height<=360]+bestaudio[ext=m4a]/best'
-audio_format = 'bestaudio[ext=m4a,protocol*=http]/bestaudio[ext=m4a]/best[ext=mp4,height<=480,protocol*=http]/best[ext=mp4,height<=480]/best[ext=mp4]/best'
+worst_video_format = 'best[ext=mp4,height<=360]/bestvideo[ext=mp4,height<=360]+bestaudio[ext=m4a]/best'
+audio_format = 'bestaudio[ext=m4a]/bestaudio/best[ext=mp4,height<=480]/best[ext=mp4]/best'
 
 TG_MAX_FILE_SIZE = 1500
 
