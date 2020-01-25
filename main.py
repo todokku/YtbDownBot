@@ -1,6 +1,6 @@
 import sys, os
 from telethon import TelegramClient, events
-from telethon.tl.types import DocumentAttributeVideo
+from telethon.tl.types import DocumentAttributeVideo, DocumentAttributeAudio
 from telethon.sessions import StringSession
 import youtube_dl as ydl
 from urllib import request
@@ -19,8 +19,9 @@ CHAT_WITH_BOT_ID = os.environ['CHAT_WITH_BOT_ID']
 
 client = TelegramClient(StringSession(os.environ['CLIENT_SESSION']), api_id, api_hash)
 
-video_format = 'best[ext=mp4,height<=1080,protocol*=http]+best[ext=mp4,height<=480,protocol*=http]/best[ext=mp4,height<=1080]+best[ext=mp4,height<=480]/best[ext=mp4,height<=1080]/best[ext=mp4]/bestvideo[ext=mp4,height<=1080]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best'
-y = ydl.YoutubeDL({'format': video_format, 'noplaylist': True, 'youtube_include_dash_manifest': False})
+vid_format = 'best[ext=mp4,height<=1080,protocol*=http]+best[ext=mp4,height<=480,protocol*=http]/best[ext=mp4,height<=1080]+best[ext=mp4,height<=480]/best[ext=mp4,height<=1080]/best[ext=mp4]/bestvideo[ext=mp4,height<=1080]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best'
+worst_video_format = 'best[ext=mp4,height<=480,protocol*=http]/best[ext=mp4,height<=480]/bestvideo[ext=mp4,height<=480]+bestaudio[ext=m4a]/best'
+audio_format = 'bestaudio[ext=m4a,protocol*=http]/bestaudio[ext=m4a]/best[ext=mp4,height<=480,protocol*=http]/best[ext=mp4,height<=480]/best[ext=mp4]/best'
 
 TG_MAX_FILE_SIZE = 1500
 
@@ -67,21 +68,46 @@ class DumbReader(typing.BinaryIO):
     def __exit__(self, type, value, traceback) -> None:
         pass
 
-class FFMpegVideo(DumbReader):
+class FFMpegAV(DumbReader):
 
-    def __init__(self, vformat, mformat=None):
-        if mformat:
-            self.stream = ffmpeg.input(vformat['url'], **{"user-agent": user_agent, "loglevel": "error"}).output('pipe:',
-                                                                                            format='mp4',
-                                                                                            acodec='copy',
-                                                                                            vcodec='copy',
-                                                                                            movflags='frag_keyframe').global_args('-user-agent', user_agent, '-i', mformat['url'], '-map', '0:v', '-map', '1:a').run_async(pipe_stdout=True)
+    def __init__(self, vformat, aformat=None, audio_only=False):
+        _finput = ffmpeg.input(vformat['url'], **{"user-agent": user_agent, "loglevel": "error"})
+        _fstream = None
+        self.format = None
+        if audio_only:
+            self.format = 'mp3'
+            acodec = None
+            if 'acodec' in  vformat and vformat['acodec'] is not None:
+                # if vformat['acodec'].startswith('mp4a'):
+                #     acodec = 'm4a'
+                if vformat['acodec'].startswith('mp3'):
+                    acodec = 'mp3'
+
+                if acodec != None:
+                    _fstream = _finput.output('pipe:',
+                                              format=acodec,
+                                              acodec='copy',
+                                              **{'vn': None})
+                else:
+                    _fstream = _finput.output('pipe:',
+                                              format='mp3',
+                                              acodec='mp3',
+                                              **{'vn': None})
+            else:
+                _fstream = _finput.output('pipe:',
+                                          format='mp3',
+                                          acodec='mp3',
+                                          **{'vn': None})
         else:
-            self.stream = ffmpeg.input(vformat['url'], **{"user-agent": user_agent, "loglevel": "error"}).output('pipe:',
-                                                                                            format='mp4',
-                                                                                            vcodec='copy',
-                                                                                            acodec='copy',
-                                                                                            movflags='frag_keyframe').run_async(pipe_stdout=True)
+            _fstream = _finput.output('pipe:',
+                                      format='mp4',
+                                      vcodec='copy',
+                                      acodec='copy',
+                                      movflags='frag_keyframe')
+        if aformat:
+            self.stream = _fstream.global_args('-user-agent', user_agent, '-i', aformat['url'], '-map', '0:v', '-map', '1:a').run_async(pipe_stdout=True)
+        else:
+            self.stream = _fstream.run_async(pipe_stdout=True)
 
     def read(self, n: int = -1):
         return self.stream.stdout.read(n)
@@ -91,7 +117,7 @@ class FFMpegVideo(DumbReader):
         self.stream.kill()
 
 
-def video_info(url, use_m3u8=False):
+def av_info(url, use_m3u8=False, audio_info=False):
     if use_m3u8:
         m3u8_obj = m3u8.load(url)
         url = m3u8_obj.segments[0].absolute_uri  # override for mediainfo call
@@ -100,20 +126,30 @@ def video_info(url, use_m3u8=False):
             if hasattr(s, 'duration'):
                 dur += s.duration
 
-    mi_proc = subprocess.Popen(['mediainfo', '--Inform=Video;%Width%\\n%Height%\\n%Duration%', '2>', '/dev/null', url],
+    mediainf_args = None
+    if audio_info:
+        mediainf_args = '--Inform=Audio;%Duration%'
+    else:
+        mediainf_args = '--Inform=Video;%Width%\\n%Height%\\n%Duration%'
+    mi_proc = subprocess.Popen(['mediainfo', mediainf_args, '2>', '/dev/null', url],
                              stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT)
     out = mi_proc.stdout.read()
     out = out.split(b'\n')
-    w = int(out[0])
-    h = int(out[1])
+
+    w = h = None
+    if not audio_info:
+        w = int(out[0])
+        h = int(out[1])
     if use_m3u8:
         dur = int(dur)
     else:
-        dur = int(int(out[2])/1000)
+        dur = int(int(out[2 if not audio_info else 0])/1000)
 
-
-    return w, h, dur
+    if audio_info:
+        return dur
+    else:
+        return w, h, dur
 
 def video_format(url):
     mi_proc = subprocess.Popen(['mediainfo', '--Inform=General;%Format%', '2>', '/dev/null', url],
@@ -144,15 +180,52 @@ def m3u8_video_size(url):
 async def main():
     chat_and_message_id = str(sys.argv[1])
     urls = str(sys.argv[2]).split(" ")
+    mode = None if len(sys.argv) <= 3 else sys.argv[3]
+
+    y_format = None
+    playlist_start = None
+    playlist_end = None
+    # p - playlist video; pa - playlist audio; pw - playlist worse video
+    if mode.startswith('p') or mode.startswith('pa') or mode.startswith('pw'):
+        pmode, prange = mode.split(':')
+        _start, _end = prange.split('-')
+        playlist_start = int(_start)
+        playlist_end = int(_end)
+        # cut "p" from mode variable if mode == "pa" or "pw"
+        mode = pmode if len(pmode) == 1 else pmode[-1]
+
+    if mode == 'a':
+        # audio mode
+        y_format = audio_format
+    elif mode == 'w':
+        # wordst video mode
+        y_format = worst_video_format
+    else:
+        # normal mode
+        y_format = vid_format
 
     for u in urls:
         try:
+            params = {'format': y_format, 'noplaylist': True, 'youtube_include_dash_manifest': False}
+            if playlist_start != None and playlist_end != None:
+                if playlist_start == 0 and playlist_end == 0:
+                    params['playliststart'] = 1
+                    params['playlistend'] = 10
+                else:
+                    params['playliststart'] = playlist_start
+                    params['playlistend'] = playlist_end
+            else:
+                params['playlistitems'] = 1
+
+            y = ydl.YoutubeDL(params)
             vinfo = y.extract_info(u, download=False)
         except Exception as e:
             if "Please log in or sign up to view this video" in e.__str__():
                 if 'vk.com' in u or 'facebook.com' in u:
                     try:
-                        yy = ydl.YoutubeDL({'format': video_format, 'noplaylist': True, 'username': os.environ['VIDEO_ACCOUNT_USERNAME'], 'password': os.environ['VIDEO_ACCOUNT_PASSWORD']})
+                        params['username'] = os.environ['VIDEO_ACCOUNT_USERNAME']
+                        params['password'] = os.environ['VIDEO_ACCOUNT_PASSWORD']
+                        yy = ydl.YoutubeDL(params)
                         vinfo = yy.extract_info(u, download=False)
                     except Exception as e:
                         await client.send_message(CHAT_WITH_BOT_ID, chat_and_message_id+" "+e.__str__())
@@ -160,22 +233,16 @@ async def main():
                 else:
                     await client.send_message(CHAT_WITH_BOT_ID, chat_and_message_id+" "+e.__str__())
                     continue
-            elif 'This playlist does not exist' in e.__str__() or 'This playlist is private' in e.__str__():
-                try:
-                    yy = ydl.YoutubeDL({'format': video_format, 'noplaylist': True, 'youtube_include_dash_manifest': False})
-                    vinfo = yy.extract_info(u, download=False)
-                except Exception as e:
-                    await client.send_message(CHAT_WITH_BOT_ID, chat_and_message_id+" "+e.__str__())
-                    continue
             elif 'are video-only' in e.__str__():
                 try:
-                    yy = ydl.YoutubeDL({'format': 'bestvideo[ext=mp4]', 'noplaylist': True, 'youtube_include_dash_manifest': False})
+                    yy = ydl.YoutubeDL(params)
                     vinfo = yy.extract_info(u, download=False)
                 except Exception as e:
                     await client.send_message(CHAT_WITH_BOT_ID, chat_and_message_id+" "+e.__str__())
                     continue
             else:
                 await client.send_message(CHAT_WITH_BOT_ID, chat_and_message_id+" "+e.__str__())
+                traceback.print_exc()
                 continue
 
         entries = None
@@ -188,7 +255,7 @@ async def main():
             formats = entry.get('requested_formats')
             file_size = None
             chosen_format = None
-            ffmpeg_video = None
+            ffmpeg_av = None
 
             if formats is not None:
                 for i, f in enumerate(formats):
@@ -210,15 +277,17 @@ async def main():
                             video_size(mformat['url'])
                         file_size = vsize + msize + 10*1024*1024
                         if file_size/(1024*1024) < TG_MAX_FILE_SIZE:
-                            ffmpeg_video = FFMpegVideo(vformat, mformat)
+                            ffmpeg_av = FFMpegAV(vformat, mformat)
                             chosen_format = f
                         break
                     if ('m3u8' in f['protocol'] and file_size / (1024*1024) <= TG_MAX_FILE_SIZE):
                         chosen_format = f
-                        ffmpeg_video = FFMpegVideo(chosen_format)
+                        ffmpeg_av = FFMpegAV(chosen_format, audio_only=True if mode == 'a' else False)
                         break
                     if file_size / (1024 * 1024) <= TG_MAX_FILE_SIZE:
                         chosen_format = f
+                        if mode == 'a' and not (chosen_format['acodec'].startswith('mp3')): #or chosen_format['acodec'].startswith('mp4a')):
+                            ffmpeg_av = FFMpegAV(chosen_format, audio_only=True if mode == 'a' else False)
                         break
 
             else:
@@ -231,34 +300,59 @@ async def main():
                     file_size = video_size(entry['url'])
                 if ('m3u8' in entry['protocol'] and file_size / (1024*1024) <= TG_MAX_FILE_SIZE):
                     chosen_format = entry
-                    ffmpeg_video = FFMpegVideo(chosen_format)
+                    ffmpeg_av = FFMpegAV(chosen_format, audio_only=True if mode == 'a' else False)
                 if (file_size / (1024 * 1024) <= TG_MAX_FILE_SIZE):
                     chosen_format = entry
+                    if mode == 'a' and not (chosen_format['acodec'].startswith('mp3')): #or chosen_format['acodec'].startswith('mp4a')):
+                        ffmpeg_av = FFMpegAV(chosen_format, audio_only=True if mode == 'a' else False)
+
 
             try:
-                if chosen_format is None and ffmpeg_video is None:
+                if chosen_format is None and ffmpeg_av is None:
                     await client.send_message(CHAT_WITH_BOT_ID, chat_and_message_id+" "+"ERROR: Failed find suitable video format")
                     return
                 if chosen_format['ext'] == 'unknown_video':
-                    format = video_format(chosen_format['url'])
+                    format = vid_format(chosen_format['url'])
                     if format == 'MPEG-4':
                         chosen_format['ext'] = 'mp4'
                     else:
                         await client.send_message(CHAT_WITH_BOT_ID, chat_and_message_id+" "+"ERROR: Failed find suitable video format")
                         return
-                file = await client.upload_file(ffmpeg_video if ffmpeg_video is not None else chosen_format['url'], file_name=entry['title'] + '.' + chosen_format['ext'], file_size=file_size, user_agent=user_agent)
-                if ('duration' not in entry and 'duration' not in chosen_format) or ('width' not in chosen_format) or ('height' not in chosen_format):
-                    width, height, duration = video_info(chosen_format['url'], use_m3u8=('m3u8' in chosen_format['protocol']))
-                else:
-                    width, height, duration = chosen_format['width'], chosen_format['height'], int(entry['duration']) if 'duration' not in entry else int(entry['duration'])
+                if mode == 'a':
+                    # we don't know real size due to converting formats
+                    # so increase it in case of real size is less large then estimated
+                    file_size += 200000
+                file = await client.upload_file(ffmpeg_av if ffmpeg_av is not None else chosen_format['url'],
+                                                file_name=entry['title'] + '.' + (chosen_format['ext'] if ffmpeg_av is None or ffmpeg_av.format is None else ffmpeg_av.format),
+                                                file_size=file_size, user_agent=user_agent)
 
-                if ffmpeg_video is not None:
-                    ffmpeg_video.close()
-                await client.send_file(CHAT_WITH_BOT_ID, file, video_note=True,
-                                       attributes=(DocumentAttributeVideo(duration,
-                                                                          width,
-                                                                          height,
-                                                                          supports_streaming=False if ffmpeg_video is not None else True),), caption=chat_and_message_id)
+                width = height = duration = None
+                if mode == 'a':
+                    if ('duration' not in entry and 'duration' not in chosen_format):
+                        duration = av_info(chosen_format['url'], use_m3u8=('m3u8' in chosen_format['protocol']), audio_info=True)
+                    else:
+                        duration = int(entry['duration']) if 'duration' not in entry else int(entry['duration'])
+
+                elif ('duration' not in entry and 'duration' not in chosen_format) or ('width' not in chosen_format) or ('height' not in chosen_format):
+                    width, height, duration = av_info(chosen_format['url'], use_m3u8=('m3u8' in chosen_format['protocol']))
+                else:
+                    width, height, duration = chosen_format['width'], chosen_format['height'], \
+                                              int(entry['duration']) if 'duration' not in entry else int(entry['duration'])
+
+                if ffmpeg_av is not None:
+                    ffmpeg_av.close()
+
+                attributes = None
+                if mode == 'a':
+                    attributes = DocumentAttributeAudio(duration, title=entry['title'])
+                else:
+                    attributes = DocumentAttributeVideo(duration,
+                                                        width,
+                                                        height,
+                                                        supports_streaming=False if ffmpeg_av is not None else True)
+                await client.send_file(CHAT_WITH_BOT_ID, file, video_note=False if mode == 'a' else True,
+                                       voice_note= True if mode == 'a' else False,
+                                       attributes=(attributes,), caption=chat_and_message_id)
             except Exception as e:
                 print(e)
                 traceback.print_exc()

@@ -6,6 +6,7 @@ import (
 	"mvdan.cc/xurls"
 	"os/exec"
 	"os"
+	"regexp"
 
 	log "github.com/sirupsen/logrus"
 	"strconv"
@@ -90,6 +91,8 @@ func BotMainLoop() {
 				messageID, _ := strconv.Atoi(caption[1])
 				if update.Message.Video != nil {
 					ShareVideoFile(update.Message.Video, chatID, messageID)
+				} else if update.Message.Audio != nil {
+					ShareAudioFile(update.Message.Audio, chatID, messageID)
 				} else if update.Message.Document != nil {
 					ShareDocumentFile(update.Message.Document, chatID, messageID)
 				}
@@ -100,14 +103,40 @@ func BotMainLoop() {
 
 		urls := rxRelaxed.FindAllString(update.Message.Text, 10)
 		if len(urls) == 0 {
-			Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "There aren't any urls in your message.\n Please send at least one."))
+			Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "There aren't any urls in your message.\nPlease send at least one."))
 			continue
 		}
+		command := update.Message.Command()
+
+		if command == "p" || command == "pa" || command == "pw" {
+			if len(urls) > 1{
+				Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Only one playlist url allowed at time"))
+				continue
+			}
+			playlist_range_re := regexp.MustCompile(`([0-9]+)-([0-9]+)`)
+			submatches := playlist_range_re.FindStringSubmatch(update.Message.Text)
+			var start uint64 = 0
+			var end uint64 = 0
+			if len(submatches) > 0 {
+				start, _ = strconv.ParseUint(submatches[1], 10, 64)
+				end, _ = strconv.ParseUint(submatches[2], 10, 64)
+			}
+
+			if start > end {
+				Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Not correct format, start number must be less then end"))
+				continue
+			}
+			if len(submatches) > 0 {
+				command += ":" + submatches[1] + "-" + submatches[2]
+			} else {
+				command += ":1-10"
+			}
+		}
+
 		log.Info("Message is ", update.Message.Text)
 		go func(urls []string, chatID int64, messageID int) {
 			ChatActionHandler.AddAction(tgbotapi.NewChatAction(chatID, "upload_video"))
-
-			err = RequestHanlder(urls, strconv.FormatInt(chatID,10) + ":" + strconv.Itoa(messageID))
+			err = RequestHanlder(urls, strconv.FormatInt(chatID,10) + ":" + strconv.Itoa(messageID), command)
 			if err != nil {
 				log.Error("Request failed: ", err)
 				Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Failed download video"))
@@ -119,16 +148,16 @@ func BotMainLoop() {
 }
 
 
-func RequestHanlder(urls []string, chatNmessageID string) error {
+func RequestHanlder(urls []string, chatNmessageID string, mode string) error {
 	urlsArg := strings.Join(urls," ")
-	p := fmt.Sprintf(`python3 ./main.py %s '%s'`, chatNmessageID, urlsArg)
-	uploadCmd := exec.Command("bash", "-c", fmt.Sprintf(`python3 ./main.py %s '%s' 2>&1`, chatNmessageID, urlsArg))
+	_cmd := fmt.Sprintf(`python3 ./main.py %s '%s' %s 2>&1`, chatNmessageID, urlsArg, mode)
+	uploadCmd := exec.Command("bash", "-c", _cmd)
 
 	out, err := uploadCmd.Output()
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Println(p, " ", string(out))
+	fmt.Println(_cmd, " ", string(out))
 
 	return nil
 }
@@ -146,6 +175,16 @@ func ShareVideoFile(video *tgbotapi.Video, chatID int64, replyToMessageID int) {
 func ShareDocumentFile(doc *tgbotapi.Document, chatID int64, replyToMessageID int) {
 	log.Info("share doc")
 	docShare := tgbotapi.NewDocumentShare(chatID, doc.FileID)
+	docShare.ReplyToMessageID = replyToMessageID
+	_, err := Bot.Send(docShare)
+	if err != nil {
+		log.Error(err)
+	}
+}
+
+func ShareAudioFile(aud *tgbotapi.Audio, chatID int64, replyToMessageID int) {
+	log.Info("share audio")
+	docShare := tgbotapi.NewAudioShare(chatID, aud.FileID)
 	docShare.ReplyToMessageID = replyToMessageID
 	_, err := Bot.Send(docShare)
 	if err != nil {
