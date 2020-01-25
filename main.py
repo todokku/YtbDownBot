@@ -186,22 +186,25 @@ async def main():
     playlist_start = None
     playlist_end = None
     # p - playlist video; pa - playlist audio; pw - playlist worse video
-    if mode.startswith('p') or mode.startswith('pa') or mode.startswith('pw'):
-        pmode, prange = mode.split(':')
-        _start, _end = prange.split('-')
-        playlist_start = int(_start)
-        playlist_end = int(_end)
-        # cut "p" from mode variable if mode == "pa" or "pw"
-        mode = pmode if len(pmode) == 1 else pmode[-1]
+    if mode is not None:
+        if mode.startswith('p') or mode.startswith('pa') or mode.startswith('pw'):
+            pmode, prange = mode.split(':')
+            _start, _end = prange.split('-')
+            playlist_start = int(_start)
+            playlist_end = int(_end)
+            # cut "p" from mode variable if mode == "pa" or "pw"
+            mode = pmode if len(pmode) == 1 else pmode[-1]
 
-    if mode == 'a':
-        # audio mode
-        y_format = audio_format
-    elif mode == 'w':
-        # wordst video mode
-        y_format = worst_video_format
+        if mode == 'a':
+            # audio mode
+            y_format = audio_format
+        elif mode == 'w':
+            # wordst video mode
+            y_format = worst_video_format
+        else:
+            # normal mode
+            y_format = vid_format
     else:
-        # normal mode
         y_format = vid_format
 
     for u in urls:
