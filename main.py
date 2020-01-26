@@ -218,7 +218,7 @@ async def main():
                     params['playliststart'] = playlist_start
                     params['playlistend'] = playlist_end
             else:
-                params['playlistitems'] = 1
+                params['playlist_items'] = '1'
 
             y = ydl.YoutubeDL(params)
             vinfo = y.extract_info(u, download=False)
