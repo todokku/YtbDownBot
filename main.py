@@ -238,6 +238,7 @@ async def main():
                     continue
             elif 'are video-only' in e.__str__():
                 try:
+                    params['format'] = 'bestvideo[ext=mp4]'
                     yy = ydl.YoutubeDL(params)
                     vinfo = yy.extract_info(u, download=False)
                 except Exception as e:
