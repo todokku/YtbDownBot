@@ -144,7 +144,7 @@ def av_info(url, use_m3u8=False, audio_info=False):
     if use_m3u8:
         dur = int(dur)
     else:
-        dur = int(int(out[2 if not audio_info else 0])/1000)
+        dur = int(int(float(out[2 if not audio_info else 0]))/1000)
 
     if audio_info:
         return dur
