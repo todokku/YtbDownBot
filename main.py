@@ -354,9 +354,12 @@ async def main():
                                                         width,
                                                         height,
                                                         supports_streaming=False if ffmpeg_av is not None else True)
-                await client.send_file(CHAT_WITH_BOT_ID, file, video_note=False if mode == 'a' else True,
+                force_document = False
+                if ffmpeg_av is None and (chosen_format['ext'] != 'mp4' and mode != 'a'):
+                        force_document = True
+                await client.send_file(CHAT_WITH_BOT_ID, file, video_note=False if mode == 'a' or force_document else True,
                                        voice_note= True if mode == 'a' else False,
-                                       attributes=(attributes,), caption=chat_and_message_id)
+                                       attributes=((attributes,) if not force_document else None), caption=chat_and_message_id, force_document=force_document)
             except Exception as e:
                 print(e)
                 traceback.print_exc()
