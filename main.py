@@ -159,9 +159,9 @@ def video_format(url):
     return out.split(b'\n')[0].decode('utf-8')
 
 user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3719.5 Safari/537.36'
-def video_size(url):
-    headers = {'User-Agent': user_agent}
-    head_req = request.Request(url, method='HEAD', headers=headers)
+
+def video_size(url, http_headers=None):
+    head_req = request.Request(url, method='HEAD', headers=http_headers)
     try:
         with request.urlopen(head_req) as resp:
             return int(resp.headers['Content-Length'])
@@ -169,12 +169,13 @@ def video_size(url):
         return 1479*1024*1024*1024 # trying upload file even if failed to get size
 
 
-def m3u8_video_size(url):
+
+def m3u8_video_size(url, http_headers=None):
     m3u8_obj = m3u8.load(url)
     size = 0
 
     for seg in m3u8_obj.segments:
-        head_req = request.Request(seg.absolute_uri, method='HEAD')
+        head_req = request.Request(seg.absolute_uri, method='HEAD', headers=http_headers)
         with request.urlopen(head_req) as resp:
             size += int(resp.headers['Content-Length'])
 
@@ -263,25 +264,31 @@ async def main():
             file_size = None
             chosen_format = None
             ffmpeg_av = None
+            http_headers = None
+            if 'http_headers' not in entry:
+                if len(formats) > 0 and 'http_headers' in formats[0]:
+                        http_headers = formats[0]['http_headers']
+            else:
+                http_headers = entry['http_headers']
 
             if formats is not None:
                 for i, f in enumerate(formats):
                     if f['protocol'] in ['rtsp', 'rtmp', 'rtmpe', 'mms', 'f4m', 'ism', 'http_dash_segments']:
                         continue
                     if 'm3u8' in f['protocol']:
-                        file_size = m3u8_video_size(f['url'])
+                        file_size = m3u8_video_size(f['url'], http_headers)
                     else:
-                        file_size = video_size(f['url'])
+                        file_size = video_size(f['url'], http_headers)
 
                     if f['protocol'] == 'https' and (True if ('acodec' in f and (f['acodec'] == 'none' or f['acodec'] == None)) else False):
                         # Dash video
                         vformat = f
                         mformat = None
-                        vsize = video_size(vformat['url'])
+                        vsize = video_size(vformat['url'], http_headers)
                         msize = 0
                         if len(formats) > i+1:
                             mformat = formats[i+1]
-                            video_size(mformat['url'])
+                            video_size(mformat['url'], http_headers)
                         file_size = vsize + msize + 10*1024*1024
                         if file_size/(1024*1024) < TG_MAX_FILE_SIZE:
                             ffmpeg_av = FFMpegAV(vformat, mformat)
@@ -302,9 +309,9 @@ async def main():
                     await client.send_message(CHAT_WITH_BOT_ID, chat_and_message_id+" "+"ERROR: Failed find suitable video format")
                     return
                 if 'm3u8' in entry['protocol']:
-                    file_size = m3u8_video_size(entry['url'])
+                    file_size = m3u8_video_size(entry['url'], http_headers)
                 else:
-                    file_size = video_size(entry['url'])
+                    file_size = video_size(entry['url'], http_headers)
                 if ('m3u8' in entry['protocol'] and file_size / (1024*1024) <= TG_MAX_FILE_SIZE):
                     chosen_format = entry
                     ffmpeg_av = FFMpegAV(chosen_format, audio_only=True if mode == 'a' else False)
@@ -331,7 +338,7 @@ async def main():
                     file_size += 200000
                 file = await client.upload_file(ffmpeg_av if ffmpeg_av is not None else chosen_format['url'],
                                                 file_name=entry['title'] + '.' + (chosen_format['ext'] if ffmpeg_av is None or ffmpeg_av.format is None else ffmpeg_av.format),
-                                                file_size=file_size, user_agent=user_agent)
+                                                file_size=file_size, http_headers=http_headers)
 
                 width = height = duration = None
                 if mode == 'a':
