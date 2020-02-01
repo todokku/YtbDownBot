@@ -162,8 +162,11 @@ user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 def video_size(url):
     headers = {'User-Agent': user_agent}
     head_req = request.Request(url, method='HEAD', headers=headers)
-    with request.urlopen(head_req) as resp:
-        return int(resp.headers['Content-Length'])
+    try:
+        with request.urlopen(head_req) as resp:
+            return int(resp.headers['Content-Length'])
+    except:
+        return 1479*1024*1024*1024 # trying upload file even if failed to get size
 
 
 def m3u8_video_size(url):
