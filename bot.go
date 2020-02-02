@@ -120,16 +120,14 @@ func BotMainLoop() {
 			if len(submatches) > 0 {
 				start, _ = strconv.ParseUint(submatches[1], 10, 64)
 				end, _ = strconv.ParseUint(submatches[2], 10, 64)
-			}
-
-			if start > end {
-				Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Not correct format, start number must be less then end"))
-				continue
-			}
-			if len(submatches) > 0 {
+				if start >= end {
+					Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Not correct format, start number must be less then end"))
+					continue
+				}
 				command += ":" + submatches[1] + "-" + submatches[2]
 			} else {
-				command += ":1-10"
+				Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Wrong message format, correct example: /" + command + " 4-9 " + urls[0]))
+				continue
 			}
 		}
 
