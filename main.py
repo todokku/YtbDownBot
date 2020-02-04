@@ -326,7 +326,7 @@ async def main():
                     await client.send_message(CHAT_WITH_BOT_ID, chat_and_message_id+" "+"ERROR: Failed find suitable video format")
                     return
                 if chosen_format['ext'] == 'unknown_video':
-                    format = vid_format(chosen_format['url'])
+                    format = video_format(chosen_format['url'])
                     if format == 'MPEG-4':
                         chosen_format['ext'] = 'mp4'
                     else:
